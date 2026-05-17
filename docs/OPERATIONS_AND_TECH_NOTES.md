@@ -378,3 +378,106 @@ yt-dlp 会输出很多偏工程侧的 warning，例如：
 - 前端把常见视频扩展名 `mp4/webm/mkv/mov/flv` 识别为可下载视频，即使编码信息未知，也会展示下载卡片。
 
 这样可以避免“解析成功但清晰度区域为空、无法点击下载”的体验问题。
+
+## 12. Bilibili Referer 与登录态结论
+
+已用同一个 Bilibili 链接做过对比验证：
+
+- 默认 yt-dlp 无 cookies 解析，只能拿到 360P/480P。
+- 补充 `User-Agent`、`Referer`、`Origin` 后，仍然只能拿到 360P/480P。
+- 因此 Bilibili 1080P 缺失不是 Referer 单独导致，核心仍然是登录态、账号权限、会员权限或平台风控策略。
+
+当前实现：
+
+- 后端会为所有请求补充桌面浏览器 `User-Agent` 和中文 `Accept-Language`，减少平台误判。
+- Bilibili 链接会额外补充 `Referer` 和 `Origin`，提高无登录解析的兼容性。
+- Bilibili 扫码登录成功后，前端只保存后端返回的 `auth_session_id` 到 `localStorage`。
+- 页面刷新后会自动用 `auth_session_id` 查询后端会话；如果后端内存里的 cookies 仍有效，就自动恢复登录态。
+- 前端不保存 cookies，cookies 仍只保存在后端内存会话中。
+
+限制：
+
+- 后端重启后，内存会话会丢失，需要重新扫码。
+- 当前 Bilibili 登录会话清理周期为 4 小时。
+- 是否能解析或下载 1080P 仍取决于 Bilibili 账号自身权限和目标视频权限。
+
+### 12.1 Bilibili 扫码入口交互
+
+前端只保留一个轻量入口：
+
+- 按钮文案：`解析不到 1080P？扫码登录 Bilibili`
+- 用户点击后立即调用 `/api/bilibili/qrcode` 生成二维码。
+- 不再额外展示“生成登录二维码”二次按钮。
+- 不在主界面展示浏览器 cookies、手动 cookies 输入等高级兜底项，避免普通用户困惑。
+
+底层仍保留 `cookies`、`browser_cookies`、`auth_session_id` 三种能力，后续可在调试页或管理员页重新暴露。
+
+## 13. Douyin Fresh Cookies 兜底解析
+
+问题现象：
+
+```text
+ERROR: [Douyin] <aweme_id>: Fresh cookies (not necessarily logged in) are needed
+```
+
+原因：
+
+- 当前 yt-dlp 的 Douyin extractor 会优先请求 `https://www.douyin.com/aweme/v1/web/aweme/detail/`。
+- 部分短链或视频在无新鲜匿名 cookies 时，该接口只返回空 JSON。
+- yt-dlp 会判断为需要 fresh cookies，但这类 cookies 不一定需要登录，只是平台风控需要的匿名会话。
+
+当前实现：
+
+- 正常情况下仍优先使用 yt-dlp 原生解析。
+- 只有 Douyin 链接遇到 `Fresh cookies` 错误时，才启用项目内兜底解析。
+- 兜底解析会请求抖音分享页或短链跳转后的页面，读取页面中的 `window._ROUTER_DATA`。
+- 从 `videoInfoRes.item_list[0]` 提取：
+  - `desc` 作为标题
+  - `author.nickname` 作为作者
+  - `video.cover.url_list[0]` 作为封面
+  - `video.duration` 作为时长，毫秒会自动转秒
+  - `video.width` / `video.height` 作为清晰度
+  - `video.play_addr.url_list[0]` 作为媒体地址
+- 后端合成一个前端可展示的格式：
+  - `format_id=douyin_share`
+  - `ext=mp4`
+  - `vcodec=h264`
+  - `acodec=aac`
+  - `resolution=widthxheight`
+
+下载策略：
+
+- 如果用户选择 `douyin_share`，或 Douyin 无 cookies 下载时，后端直接使用兜底媒体地址流式下载。
+- 下载时使用移动端 UA 和 Referer，避免把错误页保存成假 mp4。
+- 下载完成后校验文件大小，文件过小会判定为异常。
+- `extract_info` 兜底成功后清空原始英文 warning，避免页面继续展示 `Fresh cookies` 技术报错。
+
+验证方式：
+
+```powershell
+python -m compileall app
+npm.cmd run build
+```
+
+真实链接验证：
+
+```powershell
+POST http://127.0.0.1:8000/api/video/info
+{
+  "url": "https://v.douyin.com/SFpd4CeGZhk"
+}
+```
+
+成功标准：
+
+- `extractor=Douyin`
+- `formats[0].format_id=douyin_share`
+- 能展示封面和清晰度，例如 `1920x1080`
+- `warnings` 为空
+- 下载得到的文件能被 `ffprobe` 识别为 `mov,mp4,m4a,3gp,3g2,mj2`
+
+限制：
+
+- 兜底能力依赖抖音分享页当前仍输出 `window._ROUTER_DATA`。
+- 若抖音后续改版页面结构，需要同步更新 `extract_douyin_share_info`。
+- 该兜底只在 Douyin fresh-cookie 场景启用，不改变其他平台解析策略。

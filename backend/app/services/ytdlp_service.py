@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import tempfile
+import json
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import requests
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
@@ -14,6 +17,13 @@ from app.core.config import DEFAULT_FORMAT, DOWNLOAD_DIR
 from app.models.schemas import FormatInfo, VideoInfoResponse
 from app.services.direct_link_store import DirectLink, direct_link_store
 from app.services.task_store import task_store
+
+
+DOUYIN_FALLBACK_FORMAT_ID = "douyin_share"
+DOUYIN_MOBILE_UA = (
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+    "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+)
 
 
 class YtdlpWarningLogger:
@@ -54,12 +64,141 @@ def base_ytdlp_options() -> dict[str, Any]:
     return {
         **build_js_runtime_options(),
         "remote_components": ["ejs:github"],
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        },
         "socket_timeout": 120,
         "retries": 10,
         "fragment_retries": 10,
         "extractor_retries": 5,
         "file_access_retries": 5,
         "http_chunk_size": 10 * 1024 * 1024,
+    }
+
+
+def apply_url_headers(options: dict[str, Any], url: str) -> None:
+    headers = dict(options.get("http_headers") or {})
+    hostname = urlparse(url).hostname or ""
+    if "bilibili.com" in hostname:
+        headers.setdefault("Referer", url)
+        headers.setdefault("Origin", "https://www.bilibili.com")
+    options["http_headers"] = headers
+
+
+def is_douyin_url(url: str) -> bool:
+    hostname = urlparse(url).hostname or ""
+    return "douyin.com" in hostname or "iesdouyin.com" in hostname
+
+
+def is_douyin_fresh_cookie_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return "douyin" in text and "fresh cookies" in text
+
+
+def first_url(value: Any) -> str | None:
+    if isinstance(value, str) and value.startswith(("http://", "https://")):
+        return value
+    if isinstance(value, dict):
+        for item in value.get("url_list") or []:
+            if isinstance(item, str) and item.startswith(("http://", "https://")):
+                return item
+    return None
+
+
+def normalize_douyin_duration(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        duration = float(value)
+    except (TypeError, ValueError):
+        return None
+    if duration > 10000:
+        duration = duration / 1000
+    return max(0, round(duration))
+
+
+def sanitize_filename(value: str | None, fallback: str = "video") -> str:
+    text = (value or fallback).strip() or fallback
+    text = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", text)
+    text = re.sub(r"\s+", " ", text).strip(" .")
+    return (text or fallback)[:120]
+
+
+def douyin_request_headers(referer: str | None = None) -> dict[str, str]:
+    return {
+        "User-Agent": DOUYIN_MOBILE_UA,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Referer": referer or "https://www.douyin.com/",
+    }
+
+
+def extract_douyin_share_info(url: str) -> dict[str, Any]:
+    session = requests.Session()
+    response = session.get(url, headers=douyin_request_headers(), timeout=30, allow_redirects=True)
+    response.raise_for_status()
+
+    match = re.search(r"window\._ROUTER_DATA\s*=\s*({.*?})</script>", response.text, flags=re.DOTALL)
+    if not match:
+        raise RuntimeError("抖音页面未返回可解析的视频数据，请稍后重试。")
+
+    router_data = json.loads(match.group(1))
+    loader_data = router_data.get("loaderData") or {}
+    page_data = next(
+        (value for key, value in loader_data.items() if isinstance(value, dict) and key.endswith("/page")),
+        {},
+    )
+    item = next(iter(((page_data.get("videoInfoRes") or {}).get("item_list") or [])), None)
+    if not isinstance(item, dict):
+        raise RuntimeError("抖音页面没有返回视频详情，请稍后重试。")
+
+    video = item.get("video") or {}
+    play_url = first_url(video.get("play_addr"))
+    if not play_url:
+        raise RuntimeError("抖音页面没有返回可下载的视频地址。")
+
+    cover_url = first_url(video.get("cover"))
+    author = item.get("author") or {}
+    width = video.get("width")
+    height = video.get("height")
+    duration = normalize_douyin_duration(video.get("duration"))
+    aweme_id = str(item.get("aweme_id") or page_data.get("itemId") or "")
+    webpage_url = response.url
+    headers = douyin_request_headers(webpage_url)
+
+    return {
+        "id": aweme_id,
+        "title": item.get("desc") or "Douyin video",
+        "description": item.get("desc"),
+        "webpage_url": webpage_url,
+        "thumbnail": cover_url,
+        "duration": duration,
+        "uploader": author.get("nickname") or author.get("unique_id"),
+        "extractor_key": "Douyin",
+        "http_headers": headers,
+        "url": play_url,
+        "ext": "mp4",
+        "width": width,
+        "height": height,
+        "resolution": f"{width}x{height}" if width and height else (f"{height}p" if height else "original"),
+        "vcodec": "h264",
+        "acodec": "aac",
+        "format_id": DOUYIN_FALLBACK_FORMAT_ID,
+        "format_note": "分享页兜底",
+        "formats": [
+            {
+                "format_id": DOUYIN_FALLBACK_FORMAT_ID,
+                "url": play_url,
+                "ext": "mp4",
+                "width": width,
+                "height": height,
+                "resolution": f"{width}x{height}" if width and height else (f"{height}p" if height else "original"),
+                "vcodec": "h264",
+                "acodec": "aac",
+                "format_note": "分享页兜底",
+            }
+        ],
     }
 
 
@@ -311,6 +450,7 @@ def extract_info(url: str, cookies: str | None = None, browser_cookies: str | No
         "extract_flat": False,
         "logger": logger,
     }
+    apply_url_headers(options, url)
     if cookie_file:
         options["cookiefile"] = str(cookie_file)
     elif browser_cookie_config:
@@ -320,6 +460,9 @@ def extract_info(url: str, cookies: str | None = None, browser_cookies: str | No
             info = ydl.extract_info(url, download=False)
         return build_info_response(info or {}, include_raw=True, warnings=logger.warnings)
     except DownloadError as exc:
+        if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
+            info = extract_douyin_share_info(url)
+            return build_info_response(info, include_raw=True, warnings=[])
         if browser_cookie_config:
             fallback_options = dict(options)
             fallback_options.pop("cookiesfrombrowser", None)
@@ -338,6 +481,51 @@ def extract_info(url: str, cookies: str | None = None, browser_cookies: str | No
             cookie_file.unlink(missing_ok=True)
 
 
+def download_douyin_share_task(task_id: str, url: str, task_dir: Path) -> None:
+    task_store.update(task_id, status="starting")
+    info = extract_douyin_share_info(url)
+    media_url = str(info.get("url") or "")
+    if not media_url:
+        raise RuntimeError("抖音页面没有返回可下载的视频地址。")
+
+    filename = f"{sanitize_filename(info.get('title'))} [{info.get('id') or task_id}].mp4"
+    output_path = task_dir / filename
+    headers = dict(info.get("http_headers") or douyin_request_headers(info.get("webpage_url")))
+
+    with requests.get(media_url, headers=headers, timeout=(15, 180), stream=True, allow_redirects=True) as response:
+        response.raise_for_status()
+        total = int(response.headers.get("content-length") or 0)
+        downloaded = 0
+        task_store.update(task_id, status="downloading", progress=0, filename=filename)
+        with output_path.open("wb") as file:
+            for chunk in response.iter_content(chunk_size=1024 * 256):
+                if not chunk:
+                    continue
+                file.write(chunk)
+                downloaded += len(chunk)
+                if total:
+                    task_store.update(
+                        task_id,
+                        status="downloading",
+                        progress=round(min(99.0, downloaded * 100 / total), 1),
+                        filename=filename,
+                    )
+
+    if output_path.stat().st_size < 1024:
+        raise RuntimeError("抖音下载结果异常，未获得有效视频文件。")
+
+    task_store.update(
+        task_id,
+        status="completed",
+        progress=100,
+        filename=filename,
+        file_path=output_path,
+        speed=None,
+        eta=None,
+        error=None,
+    )
+
+
 def download_video_task(
     task_id: str,
     url: str,
@@ -351,6 +539,16 @@ def download_video_task(
     output_template = str(task_dir / "%(title).160B [%(id)s].%(ext)s")
     cookie_file = create_cookie_file(cookies, url)
     browser_cookie_config = normalize_browser_cookies(browser_cookies)
+
+    if is_douyin_url(url) and (format_choice == DOUYIN_FALLBACK_FORMAT_ID or not cookies and not browser_cookie_config):
+        try:
+            download_douyin_share_task(task_id, url, task_dir)
+        except Exception as exc:
+            task_store.update(task_id, status="failed", error=str(exc), speed=None, eta=None)
+        finally:
+            if cookie_file:
+                cookie_file.unlink(missing_ok=True)
+        return
 
     def progress_hook(data: dict[str, Any]) -> None:
         status = data.get("status")
@@ -387,6 +585,7 @@ def download_video_task(
         "progress_hooks": [progress_hook],
         "merge_output_format": "mp4",
     }
+    apply_url_headers(options, url)
     if with_subtitle:
         options.update(
             {
@@ -420,7 +619,13 @@ def download_video_task(
             error=None,
         )
     except Exception as exc:
-        task_store.update(task_id, status="failed", error=str(exc), speed=None, eta=None)
+        if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
+            try:
+                download_douyin_share_task(task_id, url, task_dir)
+            except Exception as fallback_exc:
+                task_store.update(task_id, status="failed", error=str(fallback_exc), speed=None, eta=None)
+        else:
+            task_store.update(task_id, status="failed", error=str(exc), speed=None, eta=None)
     finally:
         if cookie_file:
             cookie_file.unlink(missing_ok=True)
@@ -441,11 +646,21 @@ def extract_direct_link(
         "noplaylist": True,
         "format": map_format(format_choice),
     }
+    apply_url_headers(options, url)
     if cookie_file:
         options["cookiefile"] = str(cookie_file)
     elif browser_cookie_config:
         options["cookiesfrombrowser"] = browser_cookie_config
     try:
+        if is_douyin_url(url) and (format_choice == DOUYIN_FALLBACK_FORMAT_ID or not cookies and not browser_cookie_config):
+            info = extract_douyin_share_info(url)
+            selected_url = str(info.get("url") or "")
+            if not selected_url:
+                raise RuntimeError("抖音页面没有返回可下载的视频地址。")
+            token = direct_link_store.create(
+                DirectLink(url=selected_url, headers=dict(info.get("http_headers") or {}), title=info.get("title"))
+            )
+            return info, token, selected_url
         with YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=False) or {}
         selected_url = info.get("url")
@@ -466,6 +681,17 @@ def extract_direct_link(
                 headers[key] = value
         token = direct_link_store.create(DirectLink(url=selected_url, headers=headers, title=info.get("title")))
         return info, token, selected_url
+    except DownloadError as exc:
+        if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
+            info = extract_douyin_share_info(url)
+            selected_url = str(info.get("url") or "")
+            if not selected_url:
+                raise RuntimeError("抖音页面没有返回可下载的视频地址。")
+            token = direct_link_store.create(
+                DirectLink(url=selected_url, headers=dict(info.get("http_headers") or {}), title=info.get("title"))
+            )
+            return info, token, selected_url
+        raise
     finally:
         if cookie_file:
             cookie_file.unlink(missing_ok=True)

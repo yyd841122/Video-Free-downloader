@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { createBiliQrCode, createDownloadTask, getBiliQrStatus, getTask, getVideoInfo } from './api/client'
 
 const url = ref('')
@@ -21,6 +21,7 @@ const task = ref(null)
 const pollingTimer = ref(null)
 const autoDownloadedTaskId = ref('')
 const coverLoadFailed = ref(false)
+const BILI_AUTH_STORAGE_KEY = 'saveany:bili-auth-session'
 
 const statusText = computed(() => {
   const map = {
@@ -259,6 +260,36 @@ const downloadSelected = async () => {
   }
 }
 
+const rememberBiliSession = (sessionId) => {
+  if (!sessionId) {
+    return
+  }
+  window.localStorage.setItem(BILI_AUTH_STORAGE_KEY, sessionId)
+}
+
+const forgetBiliSession = () => {
+  window.localStorage.removeItem(BILI_AUTH_STORAGE_KEY)
+}
+
+onMounted(async () => {
+  const storedSessionId = window.localStorage.getItem(BILI_AUTH_STORAGE_KEY)
+  if (!storedSessionId) {
+    return
+  }
+  try {
+    const status = await getBiliQrStatus(storedSessionId)
+    if (status.is_logged_in) {
+      biliSessionId.value = storedSessionId
+      biliLoggedIn.value = true
+      biliLoginMessage.value = '已恢复 Bilibili 登录态'
+      return
+    }
+    forgetBiliSession()
+  } catch {
+    forgetBiliSession()
+  }
+})
+
 onBeforeUnmount(() => {
   if (pollingTimer.value) {
     window.clearInterval(pollingTimer.value)
@@ -272,6 +303,7 @@ const startBiliLogin = async () => {
   biliLoginLoading.value = true
   biliLoginMessage.value = ''
   biliLoggedIn.value = false
+  forgetBiliSession()
   if (biliPollTimer.value) {
     window.clearInterval(biliPollTimer.value)
     biliPollTimer.value = null
@@ -287,6 +319,7 @@ const startBiliLogin = async () => {
         biliLoginMessage.value = status.message
         biliLoggedIn.value = status.is_logged_in
         if (status.is_logged_in) {
+          rememberBiliSession(result.session_id)
           window.clearInterval(biliPollTimer.value)
           biliPollTimer.value = null
         }
@@ -376,38 +409,17 @@ const startBiliLogin = async () => {
           </div>
 
           <p class="fine-print">解析完成后选择清晰度和格式，点击立即下载即可。系统会自动选择更稳定的下载方式。</p>
-          <details class="cookie-panel">
-            <summary>解析不到 1080P？扫码登录 Bilibili</summary>
-            <p>
-              Bilibili 等平台的高清格式可能需要登录态或会员权限。推荐扫码登录，登录成功后会自动用于本次解析和下载。
-            </p>
-            <div class="bili-login-box">
-              <button class="bili-login-button" type="button" :disabled="biliLoginLoading" @click="startBiliLogin">
-                {{ biliLoginLoading ? '生成中...' : biliLoggedIn ? '已登录 Bilibili' : '生成登录二维码' }}
-              </button>
+          <div class="bili-auth-panel">
+            <button class="bili-auth-trigger" type="button" :disabled="biliLoginLoading" @click="startBiliLogin">
+              {{ biliLoginLoading ? '正在生成登录二维码...' : biliLoggedIn ? '已登录 Bilibili' : '解析不到 1080P？扫码登录 Bilibili' }}
+            </button>
+            <div v-if="biliQrImage || biliLoginMessage" class="bili-login-box">
               <img v-if="biliQrImage && !biliLoggedIn" class="bili-qr" :src="biliQrImage" alt="Bilibili 登录二维码" />
               <span v-if="biliLoginMessage" :class="['bili-login-message', { success: biliLoggedIn }]">
                 {{ biliLoginMessage }}
               </span>
             </div>
-            <p class="manual-cookie-note">如果扫码登录不可用，再尝试读取本机浏览器登录态。</p>
-            <label class="browser-cookie-row">
-              <input v-model="useBrowserCookies" type="checkbox" />
-              <span>自动读取浏览器登录态</span>
-              <select v-model="browserCookies" :disabled="!useBrowserCookies">
-                <option value="chrome">Chrome</option>
-                <option value="edge">Edge</option>
-                <option value="firefox">Firefox</option>
-                <option value="brave">Brave</option>
-              </select>
-            </label>
-            <p class="manual-cookie-note">最后兜底：可粘贴 cookies.txt 或请求头 Cookie 字符串。</p>
-            <textarea
-              v-model="cookiesText"
-              rows="4"
-              placeholder="粘贴 cookies.txt 内容，或 SESSDATA=...; bili_jct=...; DedeUserID=..."
-            ></textarea>
-          </details>
+          </div>
         </section>
       </section>
 

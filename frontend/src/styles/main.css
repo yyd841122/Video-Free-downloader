@@ -457,62 +457,34 @@ fieldset legend,
   font-weight: 600;
 }
 
-.cookie-panel {
-  max-width: 760px;
+.bili-auth-panel {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
   margin: 14px auto 0;
-  text-align: left;
 }
 
-.cookie-panel summary {
-  width: max-content;
-  max-width: 100%;
-  margin: 0 auto;
+.bili-auth-trigger {
+  min-height: 30px;
+  padding: 0 14px;
   color: #367cff;
   font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
+  font-weight: 900;
+  background: #ffffff;
+  border: 1px solid #dce8ff;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgba(54, 124, 255, 0.08);
 }
 
-.cookie-panel p {
-  margin: 12px 0 8px;
-  color: #8a95a6;
-  font-size: 13px;
-  line-height: 1.65;
-}
-
-.browser-cookie-row {
-  display: grid;
-  grid-template-columns: auto 1fr 140px;
-  gap: 10px;
-  align-items: center;
-  margin: 12px 0;
-  color: #667386;
-  font-size: 14px;
-  font-weight: 800;
+.bili-auth-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .bili-login-box {
   display: grid;
-  grid-template-columns: auto 112px 1fr;
-  gap: 14px;
-  align-items: center;
-  margin: 14px 0;
-}
-
-.bili-login-button {
-  min-height: 42px;
-  padding: 0 18px;
-  color: #ffffff;
-  font-weight: 900;
-  background: #367cff;
-  border: 0;
-  border-radius: 999px;
-  box-shadow: 0 12px 24px rgba(54, 124, 255, 0.2);
-}
-
-.bili-login-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
+  justify-items: center;
+  gap: 10px;
 }
 
 .bili-qr {
@@ -532,42 +504,6 @@ fieldset legend,
 
 .bili-login-message.success {
   color: #11865b;
-}
-
-.browser-cookie-row input {
-  width: 17px;
-  height: 17px;
-  accent-color: #367cff;
-}
-
-.browser-cookie-row select {
-  min-height: 38px;
-  padding: 0 12px;
-  color: #667386;
-  background: #ffffff;
-  border: 1px solid #dce6f5;
-  border-radius: 10px;
-}
-
-.manual-cookie-note {
-  color: #a2adbb;
-}
-
-.cookie-panel textarea {
-  width: 100%;
-  min-height: 98px;
-  padding: 12px 14px;
-  color: #1f2937;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid #dce6f5;
-  border-radius: 14px;
-  outline: none;
-  resize: vertical;
-}
-
-.cookie-panel textarea:focus {
-  border-color: #7fb1ff;
-  box-shadow: 0 0 0 4px rgba(54, 124, 255, 0.1);
 }
 
 .result-layout {
@@ -1156,23 +1092,13 @@ fieldset legend,
   }
 
   .quick-row,
-  .option-row,
-  .browser-cookie-row {
+  .option-row {
     align-items: center;
-  }
-
-  .browser-cookie-row {
-    grid-template-columns: auto 1fr;
   }
 
   .bili-login-box {
     grid-template-columns: 1fr;
-    justify-items: start;
-  }
-
-  .browser-cookie-row select {
-    grid-column: 1 / -1;
-    width: 100%;
+    justify-items: center;
   }
 
   .quick-row button,
