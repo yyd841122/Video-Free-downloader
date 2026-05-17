@@ -401,6 +401,24 @@ yt-dlp 会输出很多偏工程侧的 warning，例如：
 - 当前 Bilibili 登录会话清理周期为 4 小时。
 - 是否能解析或下载 1080P 仍取决于 Bilibili 账号自身权限和目标视频权限。
 
+### 12.2 Bilibili 清晰度一致性检查
+
+已对 `https://www.bilibili.com/video/BV1cq5q6CEu3` 做过对照检查：
+
+- 项目 API 无 cookies 解析结果只返回 360P/480P。
+- yt-dlp 原始 `formats` 同样只返回 360P/480P，不存在项目过滤导致的高清缺失。
+- 对 `30032` 格式做 `ffprobe` 探测：
+  - yt-dlp 标记：`852x480`
+  - 实际媒体流：`852x480`
+  - yt-dlp 估算大小约 `24.2MB`
+  - 实际媒体流大小约 `24.2MB`
+
+结论：
+
+- Bilibili 当前没有发现 Douyin 那种“页面 metadata 标高清，但默认播放地址实际较低清”的问题。
+- Bilibili 格式列表来自 yt-dlp 对平台播放接口的真实返回，不是项目根据页面 metadata 合成。
+- 无 cookies 时高清缺失仍然是权限/登录态问题，不是清晰度探测或前端展示问题。
+
 ### 12.1 Bilibili 扫码入口交互
 
 前端只保留一个轻量入口：
