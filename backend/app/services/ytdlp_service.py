@@ -5,9 +5,10 @@ import json
 import os
 import re
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 from yt_dlp import YoutubeDL
@@ -24,6 +25,7 @@ DOUYIN_MOBILE_UA = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 )
+DOUYIN_FALLBACK_RATIOS = ("1080p", "720p", "540p", "origin")
 
 
 class YtdlpWarningLogger:
@@ -134,6 +136,128 @@ def douyin_request_headers(referer: str | None = None) -> dict[str, str]:
     }
 
 
+def probe_media_metadata(url: str, headers: dict[str, str] | None = None) -> dict[str, Any]:
+    ffprobe_path = shutil.which("ffprobe")
+    if not ffprobe_path:
+        return {}
+
+    header_text = "".join(f"{key}: {value}\r\n" for key, value in (headers or {}).items())
+    command = [
+        ffprobe_path,
+        "-v",
+        "error",
+        "-headers",
+        header_text,
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height:format=duration,size",
+        "-of",
+        "json",
+        url,
+    ]
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, timeout=60, check=False)
+        if completed.returncode != 0:
+            return {}
+        data = json.loads(completed.stdout or "{}")
+    except (json.JSONDecodeError, OSError, subprocess.TimeoutExpired):
+        return {}
+
+    stream = next(iter(data.get("streams") or []), {})
+    media_format = data.get("format") or {}
+
+    def to_int(value: Any) -> int | None:
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        "width": to_int(stream.get("width")),
+        "height": to_int(stream.get("height")),
+        "duration": normalize_douyin_duration(media_format.get("duration")),
+        "filesize": to_int(media_format.get("size")),
+    }
+
+
+def build_douyin_play_url(play_url: str, ratio: str) -> str | None:
+    parsed = urlparse(play_url)
+    query = parse_qs(parsed.query)
+    video_id = next(iter(query.get("video_id") or []), None)
+    if not video_id:
+        return None
+    return "https://aweme.snssdk.com/aweme/v1/play/?" + urlencode(
+        {
+            "line": "0",
+            "ratio": ratio,
+            "video_id": video_id,
+        }
+    )
+
+
+def build_douyin_fallback_formats(play_url: str, headers: dict[str, str]) -> list[dict[str, Any]]:
+    formats: list[dict[str, Any]] = []
+    seen_heights: set[int] = set()
+    for ratio in DOUYIN_FALLBACK_RATIOS:
+        candidate_url = build_douyin_play_url(play_url, ratio)
+        if not candidate_url:
+            continue
+        metadata = probe_media_metadata(candidate_url, headers)
+        height = metadata.get("height")
+        width = metadata.get("width")
+        if not height or not width or height in seen_heights:
+            continue
+        seen_heights.add(height)
+        formats.append(
+            {
+                "format_id": f"douyin_{height}p",
+                "url": candidate_url,
+                "ext": "mp4",
+                "width": width,
+                "height": height,
+                "resolution": f"{width}x{height}",
+                "filesize": metadata.get("filesize"),
+                "vcodec": "h264",
+                "acodec": "aac",
+                "format_note": "分享页兜底",
+                "duration": metadata.get("duration"),
+            }
+        )
+
+    if not formats:
+        metadata = probe_media_metadata(play_url, headers)
+        width = metadata.get("width")
+        height = metadata.get("height")
+        formats.append(
+            {
+                "format_id": DOUYIN_FALLBACK_FORMAT_ID,
+                "url": play_url,
+                "ext": "mp4",
+                "width": width,
+                "height": height,
+                "resolution": f"{width}x{height}" if width and height else (f"{height}p" if height else "original"),
+                "filesize": metadata.get("filesize"),
+                "vcodec": "h264",
+                "acodec": "aac",
+                "format_note": "分享页兜底",
+                "duration": metadata.get("duration"),
+            }
+        )
+
+    return sorted(formats, key=lambda item: (item.get("height") or 0, item.get("filesize") or 0), reverse=True)
+
+
+def select_douyin_format(info: dict[str, Any], format_choice: str) -> dict[str, Any]:
+    formats = info.get("formats") or []
+    if not formats:
+        raise RuntimeError("抖音页面没有返回可下载的视频地址。")
+    for item in formats:
+        if item.get("format_id") == format_choice:
+            return item
+    return formats[0]
+
+
 def extract_douyin_share_info(url: str) -> dict[str, Any]:
     session = requests.Session()
     response = session.get(url, headers=douyin_request_headers(), timeout=30, allow_redirects=True)
@@ -166,6 +290,17 @@ def extract_douyin_share_info(url: str) -> dict[str, Any]:
     aweme_id = str(item.get("aweme_id") or page_data.get("itemId") or "")
     webpage_url = response.url
     headers = douyin_request_headers(webpage_url)
+    fallback_formats = build_douyin_fallback_formats(play_url, headers)
+    best_format = fallback_formats[0]
+    actual_width = best_format.get("width") or width
+    actual_height = best_format.get("height") or height
+    actual_duration = best_format.get("duration") or duration
+    filesize = best_format.get("filesize")
+    resolution = (
+        f"{actual_width}x{actual_height}"
+        if actual_width and actual_height
+        else (f"{actual_height}p" if actual_height else "original")
+    )
 
     return {
         "id": aweme_id,
@@ -173,32 +308,21 @@ def extract_douyin_share_info(url: str) -> dict[str, Any]:
         "description": item.get("desc"),
         "webpage_url": webpage_url,
         "thumbnail": cover_url,
-        "duration": duration,
+        "duration": actual_duration,
         "uploader": author.get("nickname") or author.get("unique_id"),
         "extractor_key": "Douyin",
         "http_headers": headers,
-        "url": play_url,
+        "url": best_format.get("url") or play_url,
         "ext": "mp4",
-        "width": width,
-        "height": height,
-        "resolution": f"{width}x{height}" if width and height else (f"{height}p" if height else "original"),
+        "width": actual_width,
+        "height": actual_height,
+        "resolution": resolution,
+        "filesize": filesize,
         "vcodec": "h264",
         "acodec": "aac",
-        "format_id": DOUYIN_FALLBACK_FORMAT_ID,
+        "format_id": best_format.get("format_id") or DOUYIN_FALLBACK_FORMAT_ID,
         "format_note": "分享页兜底",
-        "formats": [
-            {
-                "format_id": DOUYIN_FALLBACK_FORMAT_ID,
-                "url": play_url,
-                "ext": "mp4",
-                "width": width,
-                "height": height,
-                "resolution": f"{width}x{height}" if width and height else (f"{height}p" if height else "original"),
-                "vcodec": "h264",
-                "acodec": "aac",
-                "format_note": "分享页兜底",
-            }
-        ],
+        "formats": fallback_formats,
     }
 
 
@@ -481,10 +605,11 @@ def extract_info(url: str, cookies: str | None = None, browser_cookies: str | No
             cookie_file.unlink(missing_ok=True)
 
 
-def download_douyin_share_task(task_id: str, url: str, task_dir: Path) -> None:
+def download_douyin_share_task(task_id: str, url: str, task_dir: Path, format_choice: str = "") -> None:
     task_store.update(task_id, status="starting")
     info = extract_douyin_share_info(url)
-    media_url = str(info.get("url") or "")
+    selected_format = select_douyin_format(info, format_choice)
+    media_url = str(selected_format.get("url") or "")
     if not media_url:
         raise RuntimeError("抖音页面没有返回可下载的视频地址。")
 
@@ -542,7 +667,7 @@ def download_video_task(
 
     if is_douyin_url(url) and (format_choice == DOUYIN_FALLBACK_FORMAT_ID or not cookies and not browser_cookie_config):
         try:
-            download_douyin_share_task(task_id, url, task_dir)
+            download_douyin_share_task(task_id, url, task_dir, format_choice)
         except Exception as exc:
             task_store.update(task_id, status="failed", error=str(exc), speed=None, eta=None)
         finally:
@@ -621,7 +746,7 @@ def download_video_task(
     except Exception as exc:
         if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
             try:
-                download_douyin_share_task(task_id, url, task_dir)
+                download_douyin_share_task(task_id, url, task_dir, format_choice)
             except Exception as fallback_exc:
                 task_store.update(task_id, status="failed", error=str(fallback_exc), speed=None, eta=None)
         else:
@@ -654,7 +779,8 @@ def extract_direct_link(
     try:
         if is_douyin_url(url) and (format_choice == DOUYIN_FALLBACK_FORMAT_ID or not cookies and not browser_cookie_config):
             info = extract_douyin_share_info(url)
-            selected_url = str(info.get("url") or "")
+            selected_format = select_douyin_format(info, format_choice)
+            selected_url = str(selected_format.get("url") or "")
             if not selected_url:
                 raise RuntimeError("抖音页面没有返回可下载的视频地址。")
             token = direct_link_store.create(
@@ -684,7 +810,8 @@ def extract_direct_link(
     except DownloadError as exc:
         if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
             info = extract_douyin_share_info(url)
-            selected_url = str(info.get("url") or "")
+            selected_format = select_douyin_format(info, format_choice)
+            selected_url = str(selected_format.get("url") or "")
             if not selected_url:
                 raise RuntimeError("抖音页面没有返回可下载的视频地址。")
             token = direct_link_store.create(

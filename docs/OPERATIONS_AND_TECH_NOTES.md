@@ -435,11 +435,21 @@ ERROR: [Douyin] <aweme_id>: Fresh cookies (not necessarily logged in) are needed
   - `desc` 作为标题
   - `author.nickname` 作为作者
   - `video.cover.url_list[0]` 作为封面
-  - `video.duration` 作为时长，毫秒会自动转秒
-  - `video.width` / `video.height` 作为清晰度
   - `video.play_addr.url_list[0]` 作为媒体地址
-- 后端合成一个前端可展示的格式：
-  - `format_id=douyin_share`
+- 注意：`video.play_addr.url_list[0]` 通常是 `playwm` 分享播放地址，可能只有 720P；不能把页面里的 `video.width` / `video.height` 直接当成可下载文件清晰度。
+- 后端会从 `play_addr` 中提取 `video_id`，再尝试构造抖音 `play` 接口的多档地址：
+  - `ratio=1080p`
+  - `ratio=720p`
+  - `ratio=540p`
+  - `ratio=origin`
+- 每个候选地址都会用 `ffprobe` 探测真实媒体流，优先使用探测结果：
+  - 实际 `width` / `height` 作为最终展示清晰度
+  - 实际 `duration` 作为时长
+  - 实际 `size` 作为文件大小
+- 相同高度的候选会去重，按高度和文件大小降序展示。
+- 如果 `ffprobe` 不可用或所有候选探测失败，才回退到页面中的 `play_addr` 和 `video.width` / `video.height` / `duration`。
+- 后端合成前端可展示的格式：
+  - `format_id=douyin_1080p` / `douyin_720p` / `douyin_576p` 等
   - `ext=mp4`
   - `vcodec=h264`
   - `acodec=aac`
@@ -471,8 +481,7 @@ POST http://127.0.0.1:8000/api/video/info
 成功标准：
 
 - `extractor=Douyin`
-- `formats[0].format_id=douyin_share`
-- 能展示封面和清晰度，例如 `1920x1080`
+- 能展示封面和真实媒体清晰度，例如 `1920x1080`、`1280x720`
 - `warnings` 为空
 - 下载得到的文件能被 `ffprobe` 识别为 `mov,mp4,m4a,3gp,3g2,mj2`
 
