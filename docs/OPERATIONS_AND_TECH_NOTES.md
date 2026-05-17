@@ -361,3 +361,20 @@ yt-dlp 会输出很多偏工程侧的 warning，例如：
 - 如果 warning 可能导致格式缺失，会转换成中文兼容性提示。
 - 如果确实没有解析出格式，才展示需要补充依赖、登录态或环境配置的可行动提示。
 - Bilibili 高清缺失仍保留中文提示，因为它通常和登录态、会员权限、cookies 直接相关。
+
+## 11. 顶层媒体 URL 兜底格式
+
+部分平台，例如 Snapchat Spotlight，yt-dlp 可以解析出标题、封面、时长和顶层媒体地址，但不会提供常规的 `formats` 列表，或者 `formats` 里只有前端不应展示的辅助资源。
+
+处理策略：
+
+- 后端 `normalize_formats` 会先读取 `info["formats"]`。
+- 如果没有任何可展示的视频格式，但顶层 `info["url"]` 存在，则合成一个兜底格式：
+  - `format_id=best`
+  - `ext` 默认取 yt-dlp 返回值，缺省为 `mp4`
+  - `resolution` 由 `width` / `height` 或 `height` 推导
+  - `filesize` / `filesize_approx` 尽量保留
+  - `vcodec` / `acodec` 缺省为 `unknown`
+- 前端把常见视频扩展名 `mp4/webm/mkv/mov/flv` 识别为可下载视频，即使编码信息未知，也会展示下载卡片。
+
+这样可以避免“解析成功但清晰度区域为空、无法点击下载”的体验问题。

@@ -169,6 +169,31 @@ def normalize_formats(info: dict[str, Any]) -> list[FormatInfo]:
                 note=item.get("format_note") or item.get("format"),
             )
         )
+    has_video_format = any(
+        (item.vcodec and item.vcodec != "none") or (item.ext or "").lower() in {"mp4", "webm", "mkv", "mov", "flv"}
+        for item in formats
+    )
+    if not has_video_format and info.get("url"):
+        height = info.get("height")
+        width = info.get("width")
+        resolution = info.get("resolution")
+        if not resolution and width and height:
+            resolution = f"{width}x{height}"
+        elif not resolution and height:
+            resolution = f"{height}p"
+        formats.append(
+            FormatInfo(
+                format_id=str(info.get("format_id") or "best"),
+                ext=info.get("ext") or "mp4",
+                resolution=resolution or "original",
+                filesize=info.get("filesize"),
+                filesize_approx=info.get("filesize_approx"),
+                fps=info.get("fps"),
+                vcodec=info.get("vcodec") or "unknown",
+                acodec=info.get("acodec") or "unknown",
+                note=info.get("format_note") or "original",
+            )
+        )
     return formats[:80]
 
 
@@ -192,6 +217,8 @@ def get_max_video_height(info: dict[str, Any]) -> int:
 
 
 def has_downloadable_video_formats(info: dict[str, Any]) -> bool:
+    if info.get("url"):
+        return True
     for item in info.get("formats") or []:
         if not item.get("format_id"):
             continue

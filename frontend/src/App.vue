@@ -56,7 +56,7 @@ const isVideoLikeFormat = (format) => {
   const hasVideo = format.vcodec && format.vcodec !== 'none'
   const hasAudio = format.acodec && format.acodec !== 'none'
   const ext = (format.ext || '').toLowerCase()
-  return hasVideo || (!hasAudio && ['mp4', 'webm', 'mkv', 'mov', 'flv'].includes(ext))
+  return hasVideo || ['mp4', 'webm', 'mkv', 'mov', 'flv'].includes(ext)
 }
 
 const getFormatDownloadValue = (format) => {
