@@ -344,3 +344,20 @@ MVP 当前策略：
 - 前端在同一清晰度下优先选择更高质量的视频轨；如果该格式没有音频，传参为 `{video_format_id}+bestaudio/{video_format_id}`，由 yt-dlp 合并最佳音频。
 - 后端下载配置保留 `socket_timeout`、`retries`、`fragment_retries`、`http_chunk_size`，降低 `googlevideo` 读超时导致的失败概率。
 - 浏览器下载图标显示的是最终成品文件从本地服务传给浏览器的进度；YouTube 拉取和合并阶段以后端任务状态为准。
+
+## 10. 平台 Warning 展示策略
+
+yt-dlp 会输出很多偏工程侧的 warning，例如：
+
+- TikTok impersonation 依赖提示
+- YouTube EJS / JS runtime 兼容性提示
+- `If you encounter errors... install dependencies` 这类预防性提示
+
+产品侧不要把这些英文技术提示原样暴露给用户。
+
+当前策略：
+
+- 如果已经解析出可下载视频格式，非阻塞技术 warning 会被隐藏。
+- 如果 warning 可能导致格式缺失，会转换成中文兼容性提示。
+- 如果确实没有解析出格式，才展示需要补充依赖、登录态或环境配置的可行动提示。
+- Bilibili 高清缺失仍保留中文提示，因为它通常和登录态、会员权限、cookies 直接相关。

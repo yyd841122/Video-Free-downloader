@@ -41,6 +41,16 @@ const taskInProgress = computed(() =>
 const canDownload = computed(() => info.value && selectedFormat.value && !downloading.value && !taskInProgress.value)
 const activeAuthSessionId = computed(() => (biliLoggedIn.value ? biliSessionId.value : ''))
 const platformWarnings = computed(() => info.value?.warnings || [])
+const downloadProgress = computed(() => {
+  if (task.value?.status === 'completed') {
+    return 100
+  }
+  const value = Number(task.value?.progress || 0)
+  return Math.min(100, Math.max(0, Math.round(value)))
+})
+const showDownloadProgress = computed(() =>
+  ['queued', 'starting', 'downloading', 'processing', 'completed'].includes(task.value?.status),
+)
 
 const isVideoLikeFormat = (format) => {
   const hasVideo = format.vcodec && format.vcodec !== 'none'
@@ -149,7 +159,10 @@ const formatChoices = computed(() => {
     })
     .map((format, index) => ({
       ...format,
-      title: index === 0 ? `${format.resolution} 最佳（${format.hasAudio ? '视频+音频' : '视频+音频合并'}）` : format.title,
+      title:
+        index === 0
+          ? `${format.resolution} 最佳（${format.hasAudio ? '视频+音频' : '视频+音频合并'}${format.size ? `, ${(format.size / 1024 / 1024).toFixed(1)}MB` : ''}）`
+          : format.title,
     }))
     .slice(0, 6)
 })
@@ -469,6 +482,14 @@ const startBiliLogin = async () => {
             </svg>
             {{ downloading || taskInProgress ? '正在下载' : '立即下载' }}
           </button>
+          <span
+            v-if="showDownloadProgress"
+            class="progress-ring"
+            :style="{ '--progress': `${downloadProgress}%` }"
+            aria-live="polite"
+          >
+            <span>{{ downloadProgress }}%</span>
+          </span>
           <span class="selected-hint">
             {{ selectedFormat ? `已选择：${formatChoices.find((item) => item.id === selectedFormat)?.title}` : '暂无可下载格式' }}
           </span>

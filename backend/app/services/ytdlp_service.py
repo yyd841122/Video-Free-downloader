@@ -191,9 +191,57 @@ def get_max_video_height(info: dict[str, Any]) -> int:
     return max_height
 
 
+def has_downloadable_video_formats(info: dict[str, Any]) -> bool:
+    for item in info.get("formats") or []:
+        if not item.get("format_id"):
+            continue
+        vcodec = item.get("vcodec")
+        if vcodec and vcodec != "none":
+            return True
+    return False
+
+
+def normalize_user_warning(message: str, extractor: str, has_formats: bool) -> str | None:
+    text = (message or "").strip()
+    lower = text.lower()
+    if not text:
+        return None
+
+    if "impersonation" in lower and "no impersonate target" in lower:
+        if has_formats:
+            return None
+        return "平台兼容性提示：当前环境未启用浏览器指纹模拟。如果该平台解析失败，请补充 yt-dlp impersonation 依赖后重试。"
+
+    if "remote component challenge solver" in lower and "skipped" in lower:
+        if has_formats:
+            return None
+        return "平台兼容性提示：当前环境缺少挑战脚本组件，可能导致部分平台解析失败。"
+
+    if "n challenge solving failed" in lower:
+        if has_formats:
+            return "平台兼容性提示：已解析出可下载格式，但部分清晰度可能缺失。"
+        return "平台兼容性提示：平台验证处理失败，请检查 JavaScript runtime 和 yt-dlp EJS 配置。"
+
+    if "no supported javascript runtime" in lower:
+        return "YouTube 需要 JavaScript runtime 才能稳定解析，请检查后端 yt-dlp JS runtime 配置。"
+
+    if "deprecated" in lower and ("javascript" in lower or "js runtime" in lower):
+        return None if has_formats else "平台兼容性提示：当前解析环境配置较旧，可能影响后续下载稳定性。"
+
+    if "if you encounter errors" in lower and "install" in lower and has_formats:
+        return None
+
+    return text
+
+
 def infer_access_warnings(info: dict[str, Any], warnings: list[str] | None = None) -> list[str]:
-    merged = list(warnings or [])
     extractor = str(info.get("extractor_key") or info.get("extractor") or "").lower()
+    has_formats = has_downloadable_video_formats(info)
+    merged = [
+        normalized
+        for warning in (warnings or [])
+        if (normalized := normalize_user_warning(warning, extractor, has_formats))
+    ]
     max_height = get_max_video_height(info)
     if "bilibili" in extractor and 0 < max_height < 720:
         merged.append(
