@@ -26,6 +26,8 @@ DOUYIN_MOBILE_UA = (
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 )
 DOUYIN_FALLBACK_RATIOS = ("1080p", "720p", "540p", "origin")
+DOUYIN_DOWNLOAD_ATTEMPTS = 4
+DOUYIN_CHUNK_SIZE = 1024 * 1024
 
 
 class YtdlpWarningLogger:
@@ -256,6 +258,13 @@ def select_douyin_format(info: dict[str, Any], format_choice: str) -> dict[str, 
         if item.get("format_id") == format_choice:
             return item
     return formats[0]
+
+
+def get_douyin_total_size(format_info: dict[str, Any]) -> int:
+    try:
+        return int(format_info.get("filesize") or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def extract_douyin_share_info(url: str) -> dict[str, Any]:
@@ -607,37 +616,75 @@ def extract_info(url: str, cookies: str | None = None, browser_cookies: str | No
 
 def download_douyin_share_task(task_id: str, url: str, task_dir: Path, format_choice: str = "") -> None:
     task_store.update(task_id, status="starting")
-    info = extract_douyin_share_info(url)
-    selected_format = select_douyin_format(info, format_choice)
-    media_url = str(selected_format.get("url") or "")
-    if not media_url:
-        raise RuntimeError("抖音页面没有返回可下载的视频地址。")
-
-    filename = f"{sanitize_filename(info.get('title'))} [{info.get('id') or task_id}].mp4"
+    first_info = extract_douyin_share_info(url)
+    first_format = select_douyin_format(first_info, format_choice)
+    filename = f"{sanitize_filename(first_info.get('title'))} [{first_info.get('id') or task_id}].mp4"
     output_path = task_dir / filename
-    headers = dict(info.get("http_headers") or douyin_request_headers(info.get("webpage_url")))
+    total = get_douyin_total_size(first_format)
+    last_error: Exception | None = None
 
-    with requests.get(media_url, headers=headers, timeout=(15, 180), stream=True, allow_redirects=True) as response:
-        response.raise_for_status()
-        total = int(response.headers.get("content-length") or 0)
-        downloaded = 0
-        task_store.update(task_id, status="downloading", progress=0, filename=filename)
-        with output_path.open("wb") as file:
-            for chunk in response.iter_content(chunk_size=1024 * 256):
-                if not chunk:
-                    continue
-                file.write(chunk)
-                downloaded += len(chunk)
-                if total:
-                    task_store.update(
-                        task_id,
-                        status="downloading",
-                        progress=round(min(99.0, downloaded * 100 / total), 1),
-                        filename=filename,
-                    )
+    for attempt in range(1, DOUYIN_DOWNLOAD_ATTEMPTS + 1):
+        info = first_info if attempt == 1 else extract_douyin_share_info(url)
+        selected_format = first_format if attempt == 1 else select_douyin_format(info, format_choice)
+        media_url = str(selected_format.get("url") or "")
+        if not media_url:
+            raise RuntimeError("抖音页面没有返回可下载的视频地址。")
 
-    if output_path.stat().st_size < 1024:
-        raise RuntimeError("抖音下载结果异常，未获得有效视频文件。")
+        headers = dict(info.get("http_headers") or douyin_request_headers(info.get("webpage_url")))
+        downloaded = output_path.stat().st_size if output_path.exists() else 0
+        total = get_douyin_total_size(selected_format) or total
+        request_headers = dict(headers)
+        if downloaded > 0:
+            request_headers["Range"] = f"bytes={downloaded}-"
+
+        try:
+            with requests.get(
+                media_url,
+                headers=request_headers,
+                timeout=(20, 45),
+                stream=True,
+                allow_redirects=True,
+            ) as response:
+                if downloaded > 0 and response.status_code == 200:
+                    downloaded = 0
+                    output_path.unlink(missing_ok=True)
+                response.raise_for_status()
+                if not total:
+                    content_length = int(response.headers.get("content-length") or 0)
+                    total = content_length + downloaded if content_length else 0
+
+                mode = "ab" if downloaded > 0 and response.status_code == 206 else "wb"
+                task_store.update(task_id, status="downloading", progress=0, filename=filename)
+                with output_path.open(mode) as file:
+                    for chunk in response.iter_content(chunk_size=DOUYIN_CHUNK_SIZE):
+                        if not chunk:
+                            continue
+                        file.write(chunk)
+                        downloaded += len(chunk)
+                        if total:
+                            task_store.update(
+                                task_id,
+                                status="downloading",
+                                progress=round(min(99.0, downloaded * 100 / total), 1),
+                                filename=filename,
+                            )
+
+            if output_path.stat().st_size >= 1024 and (not total or output_path.stat().st_size >= total):
+                break
+        except (requests.RequestException, OSError) as exc:
+            last_error = exc
+            task_store.update(
+                task_id,
+                status="downloading",
+                filename=filename,
+                error=f"下载连接不稳定，正在重试 {attempt}/{DOUYIN_DOWNLOAD_ATTEMPTS}...",
+            )
+            continue
+    else:
+        raise RuntimeError(f"抖音下载多次重试仍失败：{last_error}")
+
+    if output_path.stat().st_size < 1024 or (total and output_path.stat().st_size < total):
+        raise RuntimeError("抖音下载结果异常，未获得完整视频文件。")
 
     task_store.update(
         task_id,
