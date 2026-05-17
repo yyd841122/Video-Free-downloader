@@ -159,6 +159,17 @@ https://samplelib.com/lib/preview/mp4/sample-5s.mp4
 - `/api/files/{task_id}`
 - `/api/proxy/{token}`
 
+YouTube 链路额外验证：
+
+- 后端在 `services/ytdlp_service.py` 统一配置 `js_runtimes` 和 `remote_components`
+- 默认使用本机 Node 作为 yt-dlp JavaScript runtime
+- `remote_components=["ejs:github"]` 用于解决 YouTube EJS challenge solver 缺失导致的格式缺失或下载失败
+- 用户下载统一走 `/api/video/download` 后端完整下载与合并，完成后再通过 `/api/files/{task_id}` 返回成品文件
+- 前端同清晰度优先选择更高质量的视频轨；无音频时传 `{video_format_id}+bestaudio/{video_format_id}` 给 yt-dlp 合并
+- 不要在用户下载流程里直接保存 YouTube 代理直链，避免把失败响应或不可播放片段保存成 mp4
+- 已增加 timeout/retry/chunk 配置降低 `googlevideo` 超时失败
+- 已用 `https://www.youtube.com/watch?v=jNQXAC9IVRw` 验证 `/api/video/info` 和 `/api/video/download`
+
 ## 9. 给 AI 的推荐提示词
 
 后续可以这样发起任务：

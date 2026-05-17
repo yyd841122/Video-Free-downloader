@@ -286,3 +286,61 @@ yt-dlp 会下载指定视频轨，并合并最佳音频轨。
 - 不要绕过 DRM、付费墙或平台权限限制
 - Bilibili 高清能力取决于账号权限
 - 线上部署前必须加并发限制、文件大小限制、任务超时和清理任务
+
+## 9. YouTube JS Runtime 配置
+
+新版 yt-dlp 的 YouTube 提取器需要 JavaScript runtime 来处理播放器签名和 n challenge。
+
+本项目在 `backend/app/services/ytdlp_service.py` 中统一配置：
+
+```python
+{
+    "js_runtimes": {"node": {"path": ".../node.exe"}},
+    "remote_components": ["ejs:github"],
+}
+```
+
+实现要点：
+
+- 默认使用本机 `node`，通过 `shutil.which("node")` 自动查找路径。
+- 可用环境变量 `YTDLP_JS_RUNTIME` 切换到 `deno`、`bun`、`quickjs`。
+- 可用环境变量 `YTDLP_JS_RUNTIME_PATH` 指定运行时完整路径。
+- `remote_components=["ejs:github"]` 允许 yt-dlp 获取官方推荐的 EJS challenge solver，避免 YouTube 解析时缺少格式或下载失败。
+- 这份配置必须同时作用于解析、下载和直链提取三条链路，不能只配置某一个接口。
+
+验证命令：
+
+```powershell
+python -m compileall app
+npm.cmd run build
+```
+
+本地 API 验证：
+
+```powershell
+POST http://127.0.0.1:8000/api/video/info
+{
+  "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+}
+```
+
+成功标准：
+
+- `extractor` 返回 `Youtube`
+- `warnings` 为空
+- 可创建下载任务并最终返回 `status=completed`
+
+### 9.1 下载策略
+
+YouTube 和部分平台会同时返回两类格式：
+
+- 音视频合一：一个媒体地址里同时包含视频和音频。
+- 音视频分离：高清视频轨和音频轨分开，需要 yt-dlp 下载后用 ffmpeg 合并。
+
+MVP 当前策略：
+
+- 用户点击下载统一走 `/api/video/download`，由后端 yt-dlp 完整下载、合并、校验成品文件后，再通过 `/api/files/{task_id}` 交给浏览器保存。
+- 不在前端下载流程里直接保存 YouTube 直链或代理流，避免浏览器把失败响应、中间流或不可播放片段当成 mp4 保存。
+- 前端在同一清晰度下优先选择更高质量的视频轨；如果该格式没有音频，传参为 `{video_format_id}+bestaudio/{video_format_id}`，由 yt-dlp 合并最佳音频。
+- 后端下载配置保留 `socket_timeout`、`retries`、`fragment_retries`、`http_chunk_size`，降低 `googlevideo` 读超时导致的失败概率。
+- 浏览器下载图标显示的是最终成品文件从本地服务传给浏览器的进度；YouTube 拉取和合并阶段以后端任务状态为准。

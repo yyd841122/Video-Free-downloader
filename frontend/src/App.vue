@@ -109,8 +109,12 @@ const formatChoices = computed(() => {
     const ext = (format.ext || '').toLowerCase()
     const size = format.filesize || format.filesize_approx || 0
     const current = byResolution.get(key)
+    const hasVideo = format.vcodec && format.vcodec !== 'none'
+    const hasAudio = format.acodec && format.acodec !== 'none'
     const score = (ext === 'mp4' ? 1000000000000 : 0) + size
-    const currentScore = current ? ((current.ext || '').toLowerCase() === 'mp4' ? 1000000000000 : 0) + (current.filesize || current.filesize_approx || 0) : -1
+    const currentScore = current
+      ? ((current.ext || '').toLowerCase() === 'mp4' ? 1000000000000 : 0) + (current.filesize || current.filesize_approx || 0)
+      : -1
 
     if (!current || score > currentScore) {
       byResolution.set(key, format)
@@ -145,7 +149,7 @@ const formatChoices = computed(() => {
     })
     .map((format, index) => ({
       ...format,
-      title: index === 0 ? `${format.resolution} 最佳（视频+音频合并）` : format.title,
+      title: index === 0 ? `${format.resolution} 最佳（${format.hasAudio ? '视频+音频' : '视频+音频合并'}）` : format.title,
     }))
     .slice(0, 6)
 })
@@ -228,7 +232,7 @@ const downloadSelected = async () => {
     const created = await createDownloadTask({
       url: url.value.trim(),
       format: selectedFormat.value,
-      with_subtitle: true,
+      with_subtitle: false,
       cookies: cookiesText.value.trim() || null,
       browser_cookies: useBrowserCookies.value && !cookiesText.value.trim() ? browserCookies.value : null,
       auth_session_id: activeAuthSessionId.value || null,

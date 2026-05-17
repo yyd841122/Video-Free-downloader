@@ -10,5 +10,5 @@ router = APIRouter(prefix="/files")
 def download_file(task_id: str) -> FileResponse:
     file_path = safe_file_response_path(task_id)
     if not file_path:
-        raise HTTPException(status_code=404, detail="文件不存在或任务未完成")
+        raise HTTPException(status_code=404, detail="File does not exist or task is not completed")
     return FileResponse(path=file_path, filename=file_path.name)

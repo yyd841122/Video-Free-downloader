@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import os
+import shutil
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -32,6 +33,34 @@ class YtdlpWarningLogger:
     def error(self, message: str) -> None:
         if message:
             self.warnings.append(message)
+
+
+def build_js_runtime_options() -> dict[str, Any]:
+    runtime = os.getenv("YTDLP_JS_RUNTIME", "node").strip().lower()
+    if not runtime or runtime == "none":
+        return {"js_runtimes": {}}
+
+    supported = {"node", "deno", "bun", "quickjs"}
+    if runtime not in supported:
+        runtime = "node"
+
+    configured_path = os.getenv("YTDLP_JS_RUNTIME_PATH", "").strip()
+    executable_path = configured_path or shutil.which(runtime)
+    config = {"path": executable_path} if executable_path else {}
+    return {"js_runtimes": {runtime: config}}
+
+
+def base_ytdlp_options() -> dict[str, Any]:
+    return {
+        **build_js_runtime_options(),
+        "remote_components": ["ejs:github"],
+        "socket_timeout": 120,
+        "retries": 10,
+        "fragment_retries": 10,
+        "extractor_retries": 5,
+        "file_access_retries": 5,
+        "http_chunk_size": 10 * 1024 * 1024,
+    }
 
 
 def map_format(format_choice: str) -> str:
@@ -200,6 +229,7 @@ def extract_info(url: str, cookies: str | None = None, browser_cookies: str | No
     cookie_file = create_cookie_file(cookies, url)
     browser_cookie_config = normalize_browser_cookies(browser_cookies)
     options = {
+        **base_ytdlp_options(),
         "quiet": True,
         "skip_download": True,
         "noplaylist": True,
@@ -273,6 +303,7 @@ def download_video_task(
             )
 
     options: dict[str, Any] = {
+        **base_ytdlp_options(),
         "format": map_format(format_choice),
         "outtmpl": output_template,
         "noplaylist": True,
@@ -329,6 +360,7 @@ def extract_direct_link(
     cookie_file = create_cookie_file(cookies, url)
     browser_cookie_config = normalize_browser_cookies(browser_cookies)
     options = {
+        **base_ytdlp_options(),
         "quiet": True,
         "skip_download": True,
         "noplaylist": True,
