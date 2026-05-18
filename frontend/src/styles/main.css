@@ -254,6 +254,7 @@ a {
 }
 
 .link-icon path,
+.clear-url-button path,
 .primary-button path,
 .primary-button circle {
   fill: none;
@@ -276,6 +277,38 @@ a {
 
 .url-input::placeholder {
   color: #a6afbd;
+}
+
+.clear-url-button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  color: #9aa7b7;
+  background: #f4f7fb;
+  border: 1px solid #e8eef7;
+  border-radius: 999px;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.clear-url-button:hover {
+  color: #367cff;
+  background: #eef5ff;
+  border-color: #d6e6ff;
+}
+
+.clear-url-button:focus-visible {
+  outline: 3px solid rgba(54, 124, 255, 0.22);
+  outline-offset: 2px;
+}
+
+.clear-url-button svg {
+  width: 18px;
+  height: 18px;
 }
 
 .primary-button {
@@ -1035,7 +1068,11 @@ fieldset legend,
   }
 
   .url-input {
-    flex-basis: calc(100% - 48px);
+    flex-basis: calc(100% - 96px);
+  }
+
+  .clear-url-button {
+    margin-top: 4px;
   }
 
   .primary-button {

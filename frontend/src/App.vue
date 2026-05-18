@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { createBiliQrCode, createDownloadTask, getBiliQrStatus, getTask, getVideoInfo } from './api/client'
 
 const url = ref('')
+const urlInput = ref(null)
 const cookiesText = ref('')
 const useBrowserCookies = ref(false)
 const browserCookies = ref('chrome')
@@ -179,6 +180,11 @@ const resetResult = () => {
     window.clearInterval(pollingTimer.value)
     pollingTimer.value = null
   }
+}
+
+const clearUrl = () => {
+  url.value = ''
+  urlInput.value?.focus()
 }
 
 const triggerFileDownload = (downloadUrl, taskId) => {
@@ -386,12 +392,25 @@ const startBiliLogin = async () => {
             </svg>
             <input
               id="video-url"
+              ref="urlInput"
               v-model="url"
               class="url-input"
               type="url"
               placeholder="https://www.youtube.com/watch?v=... 粘贴视频链接"
               @keyup.enter="parseInfo"
             />
+            <button
+              v-if="url"
+              class="clear-url-button"
+              type="button"
+              aria-label="清空视频链接"
+              title="清空"
+              @click="clearUrl"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
             <button class="primary-button" :disabled="!canSubmit" type="button" @click="parseInfo">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" />
