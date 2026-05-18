@@ -14,6 +14,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:4173",
     "http://127.0.0.1:4173",
 ]
+ALLOWED_ORIGIN_REGEX = r"chrome-extension://.*"
 
 TASK_RETENTION_SECONDS = 60 * 60 * 6
 DIRECT_LINK_TTL_SECONDS = 60 * 10

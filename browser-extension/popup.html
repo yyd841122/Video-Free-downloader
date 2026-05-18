@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SaveAny Helper</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">SaveAny Helper</p>
+          <h1>媒体捕获助手</h1>
+        </div>
+        <span id="statusBadge" class="status-badge">未开启</span>
+      </header>
+
+      <section class="panel">
+        <p id="pageTitle" class="page-title">读取当前标签页中...</p>
+        <p id="pageUrl" class="page-url"></p>
+
+        <label class="toggle-row">
+          <input id="sensitiveToggle" type="checkbox" />
+          <span>包含 Cookie / Authorization</span>
+        </label>
+        <p class="hint">默认不捕获登录态。只有在本地增强下载时，再由用户主动开启。</p>
+
+        <div class="button-row">
+          <button id="startButton" class="primary-button" type="button">开始捕获</button>
+          <button id="stopButton" class="ghost-button" type="button">停止</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>捕获结果</h2>
+          <span id="countText">0 条</span>
+        </div>
+        <div id="requestList" class="request-list"></div>
+        <div class="button-row">
+          <button id="sendButton" class="primary-button" type="button">发送到本地服务</button>
+          <button id="copyButton" class="ghost-button" type="button">复制 JSON</button>
+          <button id="clearButton" class="ghost-button" type="button">清空</button>
+        </div>
+        <p id="messageText" class="message"></p>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

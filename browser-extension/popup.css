@@ -1,0 +1,183 @@
+:root {
+  color: #101828;
+  background: #f4f8ff;
+  font-family:
+    Inter,
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 380px;
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.popup-shell {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.hero,
+.panel {
+  border: 1px solid #e1e9f5;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(47, 111, 237, 0.12);
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #edf5ff 100%);
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #367cff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 14px;
+}
+
+.status-badge {
+  padding: 6px 10px;
+  color: #8a98ac;
+  background: #eef3fa;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.status-badge.is-active {
+  color: #057647;
+  background: #dcfae6;
+}
+
+.panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.page-title {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.page-url,
+.hint,
+.message {
+  color: #7f8da3;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.primary-button,
+.ghost-button {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.primary-button {
+  color: #fff;
+  background: #367cff;
+}
+
+.primary-button:disabled,
+.ghost-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ghost-button {
+  color: #367cff;
+  background: #edf4ff;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-head span {
+  color: #7f8da3;
+  font-size: 12px;
+}
+
+.request-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.request-item {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  background: #f8fbff;
+  border: 1px solid #e6eefb;
+  border-radius: 10px;
+}
+
+.request-type {
+  color: #367cff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.request-url {
+  color: #344054;
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: break-all;
+}

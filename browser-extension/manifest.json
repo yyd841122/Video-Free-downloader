@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "SaveAny Helper",
+  "description": "Capture playable media requests from the user's own browser for SaveAny.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "SaveAny Helper",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ]
+}
