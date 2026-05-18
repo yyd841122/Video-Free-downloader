@@ -9,6 +9,9 @@ Vue + Vite + FastAPI + yt-dlp 的轻量视频下载网站。
 - 真实媒体直链解析
 - 直链重定向与代理下载
 - 下载进度展示
+- AI 视频总结（平台字幕提取 + Deepseek 摘要）
+- 上传 SRT/VTT 字幕继续总结
+- 带时间戳字幕/转录展示
 - 移动端适配
 
 ## 合规说明
@@ -23,6 +26,15 @@ Vue + Vite + FastAPI + yt-dlp 的轻量视频下载网站。
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+AI 总结需要在项目根目录或 `backend` 目录创建 `.env`：
+
+```env
+DEEPSEEK_API_KEY=你的 Deepseek Key
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MAX_TOKENS=4096
 ```
 
 前端：

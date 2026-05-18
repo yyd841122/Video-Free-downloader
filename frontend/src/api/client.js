@@ -23,6 +23,19 @@ export const request = async (url, options = {}) => {
   return response.json()
 }
 
+export const requestForm = async (url, formData) => {
+  const response = await fetch(url, {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error(await parseError(response))
+  }
+
+  return response.json()
+}
+
 export const getVideoInfo = (url, cookies = '', browserCookies = '', authSessionId = '') =>
   request('/api/video/info', {
     method: 'POST',
@@ -54,3 +67,29 @@ export const createBiliQrCode = () =>
   })
 
 export const getBiliQrStatus = (sessionId) => request(`/api/auth/bilibili/qrcode/${sessionId}`)
+
+export const createAiSummaryTask = (payload) =>
+  request('/api/ai/summary', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const getAiSummaryTask = (taskId) => request(`/api/ai/summary/${taskId}`)
+
+export const chatWithAiSummary = (taskId, payload) =>
+  request(`/api/ai/summary/${taskId}/chat`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+export const createAiSummaryFromSubtitle = ({ file, title = '', url = '' }) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (title) {
+    formData.append('title', title)
+  }
+  if (url) {
+    formData.append('url', url)
+  }
+  return requestForm('/api/ai/summary/subtitle', formData)
+}

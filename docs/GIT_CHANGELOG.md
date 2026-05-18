@@ -9,6 +9,26 @@ This document records the major Git backup points of the project, so future deve
 
 ## Version Timeline
 
+### Latest - feat: add AI video summary workflow
+
+Added the first complete AI video understanding workflow:
+
+- Added Deepseek-based AI summary tasks.
+- Added platform subtitle extraction and timestamped transcript parsing.
+- Added SRT/VTT subtitle upload fallback for videos without extractable platform subtitles.
+- Added BibiGPT-style result tabs for summary, transcript, mind map, and AI Q&A.
+- Added interactive XMind-like mind map with pan, zoom, fit, and reset controls.
+- Added AI Q&A over the generated summary and transcript.
+- Fixed YouTube subtitle extraction to avoid downloading all subtitle languages and reduce HTTP 429 risk.
+- Added Deepseek malformed JSON repair and fallback summary generation.
+- Documented the implementation in `docs/AI_SUMMARY_IMPLEMENTATION.md`.
+
+Validation:
+
+- Backend compile check passed.
+- Frontend production build passed.
+- YouTube subtitle extraction and AI summary flow were verified with a real public video.
+
 ### 5a7d3c0 - feat: add browser extension capture bridge
 
 Added the first browser extension MVP:

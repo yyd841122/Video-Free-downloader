@@ -303,6 +303,88 @@ yt-dlp 下载字幕
 
 如果没有字幕，再考虑音频提取和 ASR。
 
+#### 8.4.1 P0 已确认实现方案
+
+AI 视频总结按“平台字幕优先”实现，不在第一版引入音频 ASR：
+
+```text
+用户提交视频 URL
+-> POST /api/ai/summary 创建 AI 总结任务
+-> yt-dlp 只提取平台字幕/自动字幕，不下载完整视频
+-> 解析 SRT/VTT 为带时间戳的 transcript_segments
+-> 调用 Deepseek 生成结构化总结 JSON
+-> 保存 transcript.json 和 summary.json 到 backend/downloads/{task_id}
+-> 前端轮询 GET /api/ai/summary/{task_id} 展示进度、字幕和总结
+```
+
+默认模型使用 `deepseek-v4-flash`，通过 `.env` 配置：
+
+```text
+DEEPSEEK_API_KEY=...
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MAX_TOKENS=4096
+```
+
+P0 输出包括：
+
+- 一句话总结
+- 章节大纲
+- 核心要点
+- 时间轴
+- 关键词
+- 字幕/转录文本展示
+
+无字幕时任务返回 `no_transcript`，前端提示后续可接入音频转写或上传字幕文件。
+
+#### 8.4.2 后续扩展
+
+- P1：基于 P0 的结构化总结生成思维导图。
+- P2：基于字幕和总结内容做 AI 问答。
+- 无字幕增强：优先支持上传 SRT/VTT，其次浏览器插件辅助捕获字幕，最后再接入音频提取 + ASR。
+
+#### 8.4.2.1 上传字幕增强
+
+当平台没有开放字幕或当前登录态无法提取字幕时，前端在 `no_transcript` 状态下提供 SRT/VTT 上传入口：
+
+```text
+用户上传 SRT/VTT
+-> POST /api/ai/summary/subtitle multipart/form-data
+-> 后端保存到 backend/downloads/{task_id}/uploaded.{srt|vtt}
+-> 解析字幕并调用 Deepseek 总结
+-> 复用 P0/P1/P2 的总结、思维导图和问答展示
+```
+
+该能力需要 FastAPI 文件上传依赖 `python-multipart`。上传文件大小由 `SUBTITLE_UPLOAD_MAX_BYTES` 控制，默认 2MB。
+
+#### 8.4.3 P1 思维导图实现方案
+
+思维导图不新增后端接口，直接复用 P0 的结构化总结结果：
+
+```text
+summary.json
+-> title / one_sentence 作为中心主题
+-> outline / key_points / timeline / keywords / learning_suggestions 作为分支
+-> 前端 MindMapView 组件渲染为可扫读的知识结构
+```
+
+第一版使用 Vue 3 单文件组件和 CSS 实现，不引入额外图形库，避免影响现有构建体积和下载功能。后续如果需要拖拽、缩放、导出图片，再考虑接入专门的 mindmap/canvas 库。
+
+#### 8.4.4 P2 AI 问答实现方案
+
+AI 问答基于已完成的 P0 总结任务，不重新解析视频：
+
+```text
+用户在总结结果中提问
+-> POST /api/ai/summary/{task_id}/chat
+-> 后端读取内存中的 summary、transcript_segments
+-> 拼接结构化摘要、截断后的字幕上下文和最近对话历史
+-> 调用 Deepseek Chat Completions
+-> 返回 answer 和回答中出现的时间戳 references
+```
+
+第一版不引入向量库或数据库，适合中短视频和本地 MVP。长视频后续可把字幕切片并做检索增强，避免把整段字幕塞进模型上下文。
+
 ### 8.5 付费能力
 
 推荐把付费和下载能力解耦：

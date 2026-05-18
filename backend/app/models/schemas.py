@@ -114,3 +114,66 @@ class ExtensionCaptureRequest(BaseModel):
 class ExtensionCaptureResponse(BaseModel):
     capture_id: str
     media_count: int
+
+
+class AiSummaryRequest(BaseModel):
+    url: HttpUrl
+    cookies: str | None = Field(default=None, max_length=1_000_000)
+    browser_cookies: str | None = Field(default=None, max_length=64)
+    auth_session_id: str | None = Field(default=None, max_length=128)
+
+
+class TranscriptSegment(BaseModel):
+    start: float
+    end: float | None = None
+    text: str
+
+
+class AiTimelineItem(BaseModel):
+    time: str
+    title: str
+    summary: str
+
+
+class AiSummaryResult(BaseModel):
+    title: str | None = None
+    one_sentence: str
+    outline: list[str] = Field(default_factory=list)
+    key_points: list[str] = Field(default_factory=list)
+    timeline: list[AiTimelineItem] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
+    audience: str | None = None
+    learning_suggestions: list[str] = Field(default_factory=list)
+
+
+class AiSummaryCreateResponse(BaseModel):
+    task_id: str
+    status: str
+
+
+class AiSummaryStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    progress: float = 0
+    message: str | None = None
+    title: str | None = None
+    webpage_url: str | None = None
+    transcript_language: str | None = None
+    transcript_segments: list[TranscriptSegment] = Field(default_factory=list)
+    summary: AiSummaryResult | None = None
+    error: str | None = None
+
+
+class AiChatMessage(BaseModel):
+    role: str = Field(max_length=16)
+    content: str = Field(max_length=20_000)
+
+
+class AiChatRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2_000)
+    history: list[AiChatMessage] = Field(default_factory=list, max_length=12)
+
+
+class AiChatResponse(BaseModel):
+    answer: str
+    references: list[str] = Field(default_factory=list)

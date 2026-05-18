@@ -21,6 +21,13 @@
 - 直链代理
 - 移动端响应式布局
 - 合规和风险提示
+- P0 AI 视频总结
+- 平台字幕/自动字幕提取
+- SRT/VTT 字幕上传总结
+- 带时间戳字幕展示
+- Deepseek 结构化摘要生成
+- P1 思维导图展示
+- P2 视频内容 AI 问答
 
 未实现：
 
@@ -30,7 +37,6 @@
 - 用户额度
 - 批量任务
 - 任务历史
-- AI 总结
 - 字幕翻译
 - 文件自动清理
 - 线上级限流
@@ -61,6 +67,8 @@ GET /api/tasks/{task_id}
 GET /api/files/{task_id}
 GET /api/redirect/{token}
 GET /api/proxy/{token}
+POST /api/ai/summary
+GET /api/ai/summary/{task_id}
 ```
 
 ## 5. 本地启动
@@ -141,6 +149,28 @@ http://127.0.0.1:5173/
 - AI 总结
 - 字幕翻译
 - 云存储
+
+## 7.1 AI 视频总结实施约定
+
+AI 总结按 P0/P1/P2 逐步实现：
+
+- P0：输入 URL，提取平台字幕/自动字幕，展示带时间戳字幕，调用 Deepseek 生成总结。
+- P0 增强：无平台字幕时可通过 `POST /api/ai/summary/subtitle` 上传 SRT/VTT 字幕继续总结。
+- P1：基于总结结果生成思维导图，不新增后端接口，由前端 `MindMapView` 组件从 summary 派生展示。
+- P2：基于字幕和总结做视频内容 AI 问答，通过 `POST /api/ai/summary/{task_id}/chat` 调用 Deepseek，不新增数据库或向量库。
+
+P0 默认使用 `.env`：
+
+```text
+DEEPSEEK_API_KEY=...
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MAX_TOKENS=4096
+```
+
+第一版不做无字幕 ASR。无字幕视频返回 `no_transcript`，后续优先考虑上传字幕文件、浏览器插件辅助捕获字幕，再考虑音频提取 + ASR。
+
+AI 总结任务仍保持 MVP 的轻量架构：内存任务状态 + `backend/downloads/{task_id}` 本地结果文件，不引入数据库。
 
 ## 8. 测试参考
 

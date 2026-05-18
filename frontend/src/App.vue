@@ -1,6 +1,17 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { createBiliQrCode, createDownloadTask, getBiliQrStatus, getTask, getVideoInfo } from './api/client'
+import {
+  createAiSummaryTask,
+  createBiliQrCode,
+  createDownloadTask,
+  getAiSummaryTask,
+  getBiliQrStatus,
+  getTask,
+  getVideoInfo,
+} from './api/client'
+import MindMapView from './components/MindMapView.vue'
+import SubtitleUploadPanel from './components/SubtitleUploadPanel.vue'
+import VideoChatPanel from './components/VideoChatPanel.vue'
 
 const url = ref('')
 const urlInput = ref(null)
@@ -20,6 +31,11 @@ const error = ref('')
 const info = ref(null)
 const task = ref(null)
 const pollingTimer = ref(null)
+const aiTask = ref(null)
+const aiLoading = ref(false)
+const aiPollingTimer = ref(null)
+const transcriptExpanded = ref(false)
+const activeAiTab = ref('summary')
 const autoDownloadedTaskId = ref('')
 const coverLoadFailed = ref(false)
 const BILI_AUTH_STORAGE_KEY = 'saveany:bili-auth-session'
@@ -53,6 +69,31 @@ const downloadProgress = computed(() => {
 const showDownloadProgress = computed(() =>
   ['queued', 'starting', 'downloading', 'processing', 'completed'].includes(task.value?.status),
 )
+const aiTaskInProgress = computed(() => ['queued', 'extracting', 'summarizing'].includes(aiTask.value?.status))
+const aiProgress = computed(() => {
+  if (aiTask.value?.status === 'completed' || aiTask.value?.status === 'no_transcript') {
+    return 100
+  }
+  const value = Number(aiTask.value?.progress || 0)
+  return Math.min(100, Math.max(0, Math.round(value)))
+})
+const visibleTranscriptSegments = computed(() => {
+  const segments = aiTask.value?.transcript_segments || []
+  return transcriptExpanded.value ? segments : segments.slice(0, 10)
+})
+const transcriptText = computed(() =>
+  (aiTask.value?.transcript_segments || [])
+    .map((segment) => `[${formatDuration(segment.start)}] ${segment.text}`)
+    .join('\n'),
+)
+const aiResultTabs = computed(() => [
+  { id: 'summary', label: '总结摘要', icon: '📋' },
+  { id: 'transcript', label: '字幕文本', icon: '📜' },
+  { id: 'mindmap', label: '思维导图', icon: '🧠' },
+  { id: 'chat', label: 'AI 问答', icon: '💬' },
+])
+const highlightIcons = ['💡', '🧠', '🚀', '🎯', '✨', '📌']
+const getHighlightIcon = (index) => highlightIcons[index % highlightIcons.length]
 
 const isVideoLikeFormat = (format) => {
   const hasVideo = format.vcodec && format.vcodec !== 'none'
@@ -173,12 +214,19 @@ const resetResult = () => {
   error.value = ''
   info.value = null
   task.value = null
+  aiTask.value = null
   selectedFormat.value = ''
   autoDownloadedTaskId.value = ''
+  transcriptExpanded.value = false
+  activeAiTab.value = 'summary'
   coverLoadFailed.value = false
   if (pollingTimer.value) {
     window.clearInterval(pollingTimer.value)
     pollingTimer.value = null
+  }
+  if (aiPollingTimer.value) {
+    window.clearInterval(aiPollingTimer.value)
+    aiPollingTimer.value = null
   }
 }
 
@@ -239,6 +287,68 @@ const pollTask = (taskId) => {
       pollingTimer.value = null
     }
   }, 1200)
+}
+
+const pollAiSummaryTask = (taskId) => {
+  if (aiPollingTimer.value) {
+    window.clearInterval(aiPollingTimer.value)
+  }
+  aiPollingTimer.value = window.setInterval(async () => {
+    try {
+      aiTask.value = await getAiSummaryTask(taskId)
+      if (['completed', 'failed', 'no_transcript'].includes(aiTask.value.status)) {
+        window.clearInterval(aiPollingTimer.value)
+        aiPollingTimer.value = null
+      }
+    } catch (err) {
+      error.value = err.message
+      window.clearInterval(aiPollingTimer.value)
+      aiPollingTimer.value = null
+    }
+  }, 1400)
+}
+
+const startAiSummary = async () => {
+  if (!info.value || aiLoading.value || aiTaskInProgress.value) {
+    return
+  }
+  error.value = ''
+  aiLoading.value = true
+  transcriptExpanded.value = false
+  activeAiTab.value = 'summary'
+  aiTask.value = null
+  try {
+    const created = await createAiSummaryTask({
+      url: url.value.trim(),
+      cookies: cookiesText.value.trim() || null,
+      browser_cookies: useBrowserCookies.value && !cookiesText.value.trim() ? browserCookies.value : null,
+      auth_session_id: activeAuthSessionId.value || null,
+    })
+    aiTask.value = created
+    pollAiSummaryTask(created.task_id)
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    aiLoading.value = false
+  }
+}
+
+const handleSubtitleSummaryCreated = (created) => {
+  aiTask.value = created
+  transcriptExpanded.value = false
+  activeAiTab.value = 'summary'
+  pollAiSummaryTask(created.task_id)
+}
+
+const copyTranscript = async () => {
+  if (!transcriptText.value) {
+    return
+  }
+  try {
+    await window.navigator.clipboard.writeText(transcriptText.value)
+  } catch {
+    error.value = '复制失败，请手动选择字幕内容复制'
+  }
 }
 
 const downloadSelected = async () => {
@@ -302,6 +412,9 @@ onBeforeUnmount(() => {
   }
   if (biliPollTimer.value) {
     window.clearInterval(biliPollTimer.value)
+  }
+  if (aiPollingTimer.value) {
+    window.clearInterval(aiPollingTimer.value)
   }
 })
 
@@ -513,6 +626,28 @@ const startBiliLogin = async () => {
             </svg>
             {{ downloading || taskInProgress ? '正在下载' : '立即下载' }}
           </button>
+          <button class="ai-summary-button" :disabled="aiLoading || aiTaskInProgress" type="button" @click="startAiSummary">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v4" />
+              <path d="M12 17v4" />
+              <path d="M3 12h4" />
+              <path d="M17 12h4" />
+              <path d="m6.5 6.5 2.8 2.8" />
+              <path d="m14.7 14.7 2.8 2.8" />
+              <path d="m17.5 6.5-2.8 2.8" />
+              <path d="m9.3 14.7-2.8 2.8" />
+            </svg>
+            {{ aiTaskInProgress ? '总结中' : aiTask?.status === 'completed' ? '重新总结' : 'AI 总结' }}
+          </button>
+          <span
+            v-if="aiTask && ['queued', 'extracting', 'summarizing', 'completed'].includes(aiTask.status)"
+            class="progress-ring ai-progress-ring"
+            :style="{ '--progress': `${aiProgress}%` }"
+            aria-label="AI 总结进度"
+            aria-live="polite"
+          >
+            <span>{{ aiProgress }}%</span>
+          </span>
           <span
             v-if="showDownloadProgress"
             class="progress-ring"
@@ -528,6 +663,142 @@ const startBiliLogin = async () => {
 
         <p v-if="task?.status === 'failed'" class="download-error">{{ task.error }}</p>
         <p v-else-if="task?.download_url" class="download-success">下载已完成，已自动开始保存到本地。</p>
+
+        <section class="ai-summary-panel" aria-label="AI 视频总结">
+          <div v-if="aiTask" :class="['ai-task-state', { warning: aiTask.status === 'no_transcript' }]" aria-live="polite">
+            <p v-if="aiTask.status === 'no_transcript'" class="ai-empty-state">
+              当前视频没有可提取的平台字幕或自动字幕。后续可接入音频转写，或支持上传 SRT/VTT 字幕后总结。
+            </p>
+            <SubtitleUploadPanel
+              v-if="aiTask.status === 'no_transcript'"
+              :title="info?.title || ''"
+              :url="url.trim()"
+              @created="handleSubtitleSummaryCreated"
+              @error="error = $event"
+            />
+            <p v-else-if="aiTask.status === 'failed'" class="download-error">{{ aiTask.error }}</p>
+          </div>
+
+          <div v-if="aiTask?.summary" class="ai-result-tabs">
+            <div class="ai-tab-list" role="tablist" aria-label="AI 生成结果">
+              <button
+                v-for="tab in aiResultTabs"
+                :id="`ai-tab-${tab.id}`"
+                :key="tab.id"
+                :aria-controls="`ai-panel-${tab.id}`"
+                :aria-selected="activeAiTab === tab.id"
+                :class="{ active: activeAiTab === tab.id }"
+                type="button"
+                role="tab"
+                @click="activeAiTab = tab.id"
+              >
+                <span class="ai-tab-icon" aria-hidden="true">{{ tab.icon }}</span>
+                <span>{{ tab.label }}</span>
+              </button>
+            </div>
+
+            <div class="ai-tab-panel-shell">
+              <section
+                v-show="activeAiTab === 'summary'"
+                id="ai-panel-summary"
+                class="ai-tab-panel ai-summary-result"
+                role="tabpanel"
+                aria-labelledby="ai-tab-summary"
+              >
+                <article class="ai-doc-panel">
+                  <section class="ai-doc-section">
+                    <h2>总结</h2>
+                    <p>{{ aiTask.summary.one_sentence }}</p>
+                  </section>
+
+                  <section class="ai-doc-section">
+                    <h2>亮点</h2>
+                    <ul class="ai-doc-highlights">
+                      <li v-for="(point, index) in aiTask.summary.key_points" :key="point">
+                        <span class="ai-doc-emoji" aria-hidden="true">{{ getHighlightIcon(index) }}</span>
+                        <strong>{{ point.split('：')[0] }}</strong>
+                        <template v-if="point.includes('：')">：{{ point.split('：').slice(1).join('：') }}</template>
+                      </li>
+                    </ul>
+                  </section>
+
+                  <section class="ai-doc-section">
+                    <h2>章节总结</h2>
+                    <ol class="ai-doc-list">
+                      <li v-for="item in aiTask.summary.outline" :key="item">{{ item }}</li>
+                    </ol>
+                  </section>
+
+                  <section v-if="aiTask.summary.timeline?.length" class="ai-doc-section">
+                    <h2>时间轴</h2>
+                    <div class="ai-doc-timeline">
+                      <p v-for="item in aiTask.summary.timeline" :key="`${item.time}-${item.title}`">
+                        <time>{{ item.time }}</time>
+                        <strong>{{ item.title }}</strong>
+                        <span>{{ item.summary }}</span>
+                      </p>
+                    </div>
+                  </section>
+
+                  <section v-if="aiTask.summary.keywords?.length" class="ai-doc-section">
+                    <h2>关键词</h2>
+                    <p class="ai-doc-keywords">{{ aiTask.summary.keywords.join('、') }}</p>
+                  </section>
+                </article>
+              </section>
+
+              <section
+                v-show="activeAiTab === 'transcript'"
+                id="ai-panel-transcript"
+                class="ai-tab-panel transcript-panel"
+                role="tabpanel"
+                aria-labelledby="ai-tab-transcript"
+              >
+                <div class="transcript-header">
+                  <div>
+                    <h4>字幕 / 转录</h4>
+                    <p>{{ aiTask.transcript_segments.length }} 条字幕片段，语言：{{ aiTask.transcript_language || '未知' }}</p>
+                  </div>
+                  <button class="text-action-button" type="button" @click="copyTranscript">复制全文</button>
+                </div>
+                <div class="transcript-list">
+                  <p v-for="segment in visibleTranscriptSegments" :key="`${segment.start}-${segment.text}`">
+                    <time>{{ formatDuration(segment.start) }}</time>
+                    <span>{{ segment.text }}</span>
+                  </p>
+                </div>
+                <button
+                  v-if="aiTask.transcript_segments.length > 10"
+                  class="text-action-button"
+                  type="button"
+                  @click="transcriptExpanded = !transcriptExpanded"
+                >
+                  {{ transcriptExpanded ? '收起字幕' : `展开全部 ${aiTask.transcript_segments.length} 条` }}
+                </button>
+              </section>
+
+              <section
+                v-show="activeAiTab === 'mindmap'"
+                id="ai-panel-mindmap"
+                class="ai-tab-panel"
+                role="tabpanel"
+                aria-labelledby="ai-tab-mindmap"
+              >
+                <MindMapView v-if="activeAiTab === 'mindmap'" :summary="aiTask.summary" />
+              </section>
+
+              <section
+                v-show="activeAiTab === 'chat'"
+                id="ai-panel-chat"
+                class="ai-tab-panel"
+                role="tabpanel"
+                aria-labelledby="ai-tab-chat"
+              >
+                <VideoChatPanel v-if="activeAiTab === 'chat'" :task-id="aiTask.task_id" />
+              </section>
+            </div>
+          </div>
+        </section>
       </section>
 
       <section id="features" class="feature-section">
