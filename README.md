@@ -46,3 +46,4 @@ http://localhost:5173
 - [AI 协作上下文](docs/AI_CONTEXT.md)
 - [MVP 开发方案](docs/DEVELOPMENT_PLAN.md)
 - [操作与技术方案记录](docs/OPERATIONS_AND_TECH_NOTES.md)
+- [Git 版本修改记录](docs/GIT_CHANGELOG.md)
