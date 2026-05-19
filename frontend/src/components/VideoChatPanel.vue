@@ -50,16 +50,8 @@ const sendQuestion = async () => {
 
 <template>
   <section class="video-chat" aria-label="视频内容 AI 问答">
-    <div class="video-chat-heading">
-      <div>
-        <h4>AI 问答</h4>
-        <p>围绕当前视频字幕提问，回答会尽量引用对应时间点。</p>
-      </div>
-    </div>
-
     <div v-if="messages.length" class="chat-messages" aria-live="polite">
       <article v-for="(message, index) in messages" :key="`${message.role}-${index}-${message.content}`" :class="['chat-message', message.role]">
-        <span>{{ message.role === 'user' ? '你' : 'AI' }}</span>
         <p>{{ message.content }}</p>
         <div v-if="message.references?.length" class="chat-references">
           <time v-for="item in message.references" :key="item">{{ item }}</time>
@@ -88,59 +80,50 @@ const sendQuestion = async () => {
 
 <style scoped>
 .video-chat {
-  padding: 18px;
+  padding: 18px 16px 16px;
   background: #ffffff;
-  border: 1px solid #e8eef7;
-  border-radius: 14px;
-}
-
-.video-chat-heading h4 {
-  margin: 0;
-  color: #1b202a;
-}
-
-.video-chat-heading p {
-  margin: 7px 0 0;
-  color: #7f8b9c;
-  line-height: 1.6;
+  border: 0;
+  border-radius: 0;
 }
 
 .chat-messages {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   max-height: 420px;
-  margin-top: 16px;
   overflow: auto;
-  padding-right: 4px;
+  padding: 0 4px 2px;
 }
 
 .chat-message {
-  display: grid;
-  gap: 7px;
-  padding: 13px 14px;
-  border-radius: 12px;
+  max-width: 88%;
+  padding: 12px 14px;
+  border-radius: 13px;
 }
 
 .chat-message.user {
-  background: #eef5ff;
-  border: 1px solid #d9e8ff;
+  align-self: flex-end;
+  max-width: 76%;
+  color: #ffffff;
+  background: #3b82f6;
+  border: 1px solid #2f75e8;
+  border-top-right-radius: 5px;
+  box-shadow: 0 8px 18px rgba(59, 130, 246, 0.2);
 }
 
 .chat-message.assistant {
-  background: #f8fbff;
-  border: 1px solid #e8eef7;
-}
-
-.chat-message span {
-  color: #367cff;
-  font-size: 13px;
-  font-weight: 900;
+  align-self: flex-start;
+  color: #263244;
+  background: #f5f7fb;
+  border: 1px solid #eef1f6;
+  border-top-left-radius: 5px;
 }
 
 .chat-message p {
   margin: 0;
-  color: #3f4a5c;
-  line-height: 1.7;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.75;
   white-space: pre-wrap;
 }
 
@@ -148,6 +131,7 @@ const sendQuestion = async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 10px;
 }
 
 .chat-references time {
@@ -161,8 +145,7 @@ const sendQuestion = async () => {
 }
 
 .chat-empty {
-  margin-top: 16px;
-  padding: 14px;
+  padding: 18px 16px;
   color: #718096;
   line-height: 1.7;
   background: #f8fbff;

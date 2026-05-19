@@ -9,7 +9,27 @@ This document records the major Git backup points of the project, so future deve
 
 ## Version Timeline
 
-### Latest - feat: add AI video summary workflow
+### Latest - feat: polish download and AI result UI
+
+Polished the main download page and AI result experience:
+
+- Reworked the hero area so parsed results can move into the first viewport faster.
+- Added compact parsed-state behavior: hide marketing copy after parsing, restore it when the URL is cleared.
+- Rebuilt the result layout as desktop two-column cards with equal height and mobile content-height cards.
+- Made Bilibili login guidance contextual: only show the scan-login prompt after parsing a Bilibili link.
+- Simplified the Bilibili HD warning copy for normal users.
+- Improved summary Markdown presentation, transcript readability, and transcript format downloads.
+- Rebuilt the mind map logic around summary-derived semantic branches instead of forced keyword/timeline nodes.
+- Added consistent SVG-based mind map rendering and high-quality PNG/SVG downloads.
+- Polished AI Q&A into a chat-bubble interface.
+- Redesigned the lower marketing area with five feature cards and Free/VIP plan cards.
+
+Validation:
+
+- Frontend production build passed with `npm.cmd run build`.
+- Frontend and backend were restarted locally and returned HTTP 200 on `5173` and `/api/health`.
+
+### 3b73ae5 - feat: add AI video summary workflow
 
 Added the first complete AI video understanding workflow:
 

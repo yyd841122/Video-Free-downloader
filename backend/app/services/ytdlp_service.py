@@ -544,7 +544,7 @@ def infer_access_warnings(info: dict[str, Any], warnings: list[str] | None = Non
     max_height = get_max_video_height(info)
     if "bilibili" in extractor and 0 < max_height < 720:
         merged.append(
-            "当前未解析到 720P/1080P 等高清格式。Bilibili 的高清格式通常需要登录态、会员权限或有效 cookies；未提供这些信息时，yt-dlp 只能拿到公开视频可访问的低清格式。"
+            "当前未解析到 720P/1080P 等高清格式。可以扫码登录 Bilibili 获取高清视频。"
         )
     return list(dict.fromkeys(merged))
 
