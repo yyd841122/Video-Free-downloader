@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from html import unescape
 from pathlib import Path
@@ -11,6 +12,12 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from app.core.config import (
+    ASR_ENABLED,
+    ASR_LANGUAGE,
+    ASR_MAX_AUDIO_MINUTES,
+    ASR_MODEL,
+    ASR_RESPONSE_FORMAT,
+    ASR_TIMEOUT_SECONDS,
     DEEPSEEK_API_KEY,
     DEEPSEEK_BASE_URL,
     DEEPSEEK_MAX_TOKENS,
@@ -39,6 +46,9 @@ PREFERRED_LANGUAGE_MARKERS = (
     ".en.",
 )
 PREFERRED_SUBTITLE_LANGUAGES = (
+    "en",
+    "en-US",
+    "en-GB",
     "zh-Hans",
     "zh-CN",
     "zh",
@@ -46,9 +56,6 @@ PREFERRED_SUBTITLE_LANGUAGES = (
     "zh-TW",
     "cmn-Hans",
     "cmn",
-    "en",
-    "en-US",
-    "en-GB",
 )
 MAX_TRANSCRIPT_CHARS = 45_000
 MAX_CHAT_CONTEXT_CHARS = 32_000
@@ -187,20 +194,47 @@ def infer_subtitle_language(path: Path | None) -> str | None:
     return None
 
 
-def subtitle_language_rank(language: str) -> tuple[int, str]:
+def language_family(language: str | None) -> str | None:
+    normalized = (language or "").strip().lower().replace("_", "-")
+    if not normalized:
+        return None
+    if normalized.startswith(("zh", "cmn", "yue")):
+        return "zh"
+    if normalized.startswith("en"):
+        return "en"
+    return normalized.split("-", 1)[0]
+
+
+def preferred_subtitle_languages_for_info(info: dict[str, Any]) -> tuple[str, ...]:
+    family = language_family(
+        info.get("language")
+        or info.get("original_language")
+        or info.get("requested_subtitles", {}).get("language")
+    )
+    english = ("en", "en-US", "en-GB")
+    chinese = ("zh-Hans", "zh-CN", "zh", "zh-Hant", "zh-TW", "cmn-Hans", "cmn")
+    if family == "zh":
+        return (*chinese, *english)
+    if family == "en":
+        return (*english, *chinese)
+    return PREFERRED_SUBTITLE_LANGUAGES
+
+
+def subtitle_language_rank(language: str, preferred_languages: tuple[str, ...] = PREFERRED_SUBTITLE_LANGUAGES) -> tuple[int, str]:
     normalized = language.lower()
-    for index, preferred in enumerate(PREFERRED_SUBTITLE_LANGUAGES):
+    for index, preferred in enumerate(preferred_languages):
         preferred_normalized = preferred.lower()
         if normalized == preferred_normalized:
             return index, language
         if normalized.startswith(f"{preferred_normalized}-"):
             return index + 100, language
-    return len(PREFERRED_SUBTITLE_LANGUAGES) + 500, language
+    return len(preferred_languages) + 500, language
 
 
 def collect_subtitle_candidates(info: dict[str, Any]) -> list[tuple[str, str]]:
     seen: set[tuple[str, str]] = set()
     discovered: list[tuple[str, str]] = []
+    preferred_languages = preferred_subtitle_languages_for_info(info)
     for source, subtitles_key in (("manual", "subtitles"), ("automatic", "automatic_captions")):
         subtitles = info.get(subtitles_key) or {}
         if not isinstance(subtitles, dict):
@@ -208,8 +242,8 @@ def collect_subtitle_candidates(info: dict[str, Any]) -> list[tuple[str, str]]:
         for language, entries in subtitles.items():
             if not entries:
                 continue
-            rank, _ = subtitle_language_rank(language)
-            if rank >= len(PREFERRED_SUBTITLE_LANGUAGES) + 500:
+            rank, _ = subtitle_language_rank(language, preferred_languages)
+            if rank >= len(preferred_languages) + 500:
                 continue
             candidate = (source, language)
             if candidate not in seen:
@@ -218,7 +252,7 @@ def collect_subtitle_candidates(info: dict[str, Any]) -> list[tuple[str, str]]:
     return sorted(
         discovered,
         key=lambda item: (
-            subtitle_language_rank(item[1]),
+            subtitle_language_rank(item[1], preferred_languages),
             0 if item[0] == "manual" else 1,
         ),
     )
@@ -314,6 +348,74 @@ def extract_platform_transcript(
             cookie_file.unlink(missing_ok=True)
 
 
+logger = logging.getLogger(__name__)
+
+
+def download_media_for_asr(
+    url: str,
+    task_dir: Path,
+    cookies: str | None = None,
+    browser_cookies: str | None = None,
+) -> Path:
+    """Download best-quality audio (or video) to task_dir for ASR processing.
+
+    Returns the path to the downloaded file.
+    """
+    cookie_file = create_cookie_file(cookies, url)
+    browser_cookie_config = normalize_browser_cookies(browser_cookies)
+    output_template = str(task_dir / "asr_input.%(ext)s")
+    max_duration_seconds = ASR_MAX_AUDIO_MINUTES * 60
+    probe_options: dict[str, Any] = {
+        **base_ytdlp_options(),
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "noplaylist": True,
+    }
+    apply_url_headers(probe_options, url)
+    if cookie_file:
+        probe_options["cookiefile"] = str(cookie_file)
+    elif browser_cookie_config:
+        probe_options["cookiesfrombrowser"] = browser_cookie_config
+
+    with YoutubeDL(probe_options) as ydl:
+        info = ydl.extract_info(url, download=False) or {}
+    duration = float(info.get("duration") or 0)
+    if duration > max_duration_seconds:
+        raise RuntimeError(f"视频时长超过 ASR 测试限制（最多 {ASR_MAX_AUDIO_MINUTES} 分钟）")
+
+    options: dict[str, Any] = {
+        **base_ytdlp_options(),
+        "format": "bestaudio/best",
+        "outtmpl": output_template,
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    apply_url_headers(options, url)
+    if cookie_file:
+        options["cookiefile"] = str(cookie_file)
+    elif browser_cookie_config:
+        options["cookiesfrombrowser"] = browser_cookie_config
+    try:
+        with YoutubeDL(options) as ydl:
+            ydl.download([url])
+    except DownloadError:
+        # Fallback: download full video if audio-only fails.
+        options["format"] = "best"
+        with YoutubeDL(options) as ydl:
+            ydl.download([url])
+    finally:
+        if cookie_file:
+            cookie_file.unlink(missing_ok=True)
+
+    candidates = [p for p in task_dir.iterdir()
+                  if p.name.startswith("asr_input") and not p.name.endswith(".part")]
+    if not candidates:
+        raise RuntimeError("ASR 媒体下载完成但未找到输出文件")
+    return max(candidates, key=lambda p: p.stat().st_size)
+
+
 def build_transcript_text(segments: list[TranscriptSegment]) -> tuple[str, bool]:
     lines: list[str] = []
     total = 0
@@ -354,12 +456,45 @@ def extract_json_object(text: str) -> dict[str, Any]:
         return json.loads(match.group(0))
 
 
-def normalize_summary_payload(parsed: dict[str, Any], title: str | None, transcript_text: str) -> dict[str, Any]:
+def get_summary_language_instruction(transcript_language: str | None = None) -> tuple[str, str]:
+    family = language_family(transcript_language)
+    if family == "zh":
+        return "中文", "所有总结、标题、思维导图节点、关键词、学习建议和问答回答都必须使用中文。"
+    if family == "en":
+        return "English", "All summary text, titles, mind map nodes, keywords, learning suggestions, and Q&A answers must be written in English."
+    return "the same language as the transcript", "Use the same language as the transcript for all output. Do not translate into Chinese unless the transcript itself is Chinese."
+
+
+def localized_fallback_text(transcript_language: str | None, key: str) -> str:
+    family = language_family(transcript_language)
+    text_map = {
+        "generated_summary": {
+            "zh": "已根据字幕生成视频学习摘要。",
+            "en": "A video learning summary has been generated from the transcript.",
+        },
+        "learning_suggestion": {
+            "zh": "先浏览摘要和时间轴，再按需回看对应片段。",
+            "en": "Start with the summary and timeline, then revisit the relevant segments as needed.",
+        },
+        "timeline_title": {
+            "zh": "主要内容",
+            "en": "Main content",
+        },
+        "audience": {
+            "zh": "希望快速了解视频内容的学习者",
+            "en": "Learners who want to quickly understand the video content.",
+        },
+    }
+    values = text_map.get(key, {})
+    return values.get(family or "", values.get("en", ""))
+
+
+def normalize_summary_payload(parsed: dict[str, Any], title: str | None, transcript_text: str, transcript_language: str | None = None) -> dict[str, Any]:
     if not parsed.get("title"):
         parsed["title"] = title
     if not parsed.get("one_sentence"):
         first_line = next((line for line in transcript_text.splitlines() if line.strip()), "")
-        parsed["one_sentence"] = clean_subtitle_text(first_line) or "已根据字幕生成视频学习摘要。"
+        parsed["one_sentence"] = clean_subtitle_text(first_line) or localized_fallback_text(transcript_language, "generated_summary")
     if not parsed.get("outline"):
         parsed["outline"] = [parsed["one_sentence"]]
     if not parsed.get("key_points"):
@@ -373,12 +508,14 @@ def normalize_summary_payload(parsed: dict[str, Any], title: str | None, transcr
         parsed["timeline"] = [
             {
                 "time": first_time.group(1) if first_time else "00:00",
-                "title": "主要内容",
+                "title": localized_fallback_text(transcript_language, "timeline_title"),
                 "summary": parsed["one_sentence"],
             }
         ]
     if parsed.get("audience") is None:
-        parsed["audience"] = "希望快速了解视频内容的学习者"
+        parsed["audience"] = localized_fallback_text(transcript_language, "audience")
+    if "mindmap_markdown" not in parsed:
+        parsed["mindmap_markdown"] = None
     return parsed
 
 
@@ -440,11 +577,11 @@ timeline 必须是数组，元素必须包含 time、title、summary。
     return extract_json_object(repaired)
 
 
-def fallback_summary_from_transcript(title: str | None, transcript_text: str) -> AiSummaryResult:
+def fallback_summary_from_transcript(title: str | None, transcript_text: str, transcript_language: str | None = None) -> AiSummaryResult:
     lines = [line.strip() for line in transcript_text.splitlines() if line.strip()]
     cleaned_lines = [clean_subtitle_text(re.sub(r"^\[[^\]]+\]\s*", "", line)) for line in lines]
     unique_lines = list(dict.fromkeys(line for line in cleaned_lines if line))
-    one_sentence = unique_lines[0] if unique_lines else "已根据字幕生成视频学习摘要。"
+    one_sentence = unique_lines[0] if unique_lines else localized_fallback_text(transcript_language, "generated_summary")
     outline = unique_lines[:6] or [one_sentence]
     key_points = unique_lines[:5] or [one_sentence]
     timeline = []
@@ -456,7 +593,7 @@ def fallback_summary_from_transcript(title: str | None, transcript_text: str) ->
         if text:
             timeline.append({"time": match.group(1), "title": text[:18], "summary": text})
     if not timeline:
-        timeline = [{"time": "00:00", "title": "主要内容", "summary": one_sentence}]
+        timeline = [{"time": "00:00", "title": localized_fallback_text(transcript_language, "timeline_title"), "summary": one_sentence}]
     return AiSummaryResult.model_validate(
         {
             "title": title,
@@ -465,8 +602,9 @@ def fallback_summary_from_transcript(title: str | None, transcript_text: str) ->
             "key_points": key_points,
             "timeline": timeline,
             "keywords": [],
-            "audience": "希望快速了解视频内容的学习者",
-            "learning_suggestions": ["先浏览摘要和时间轴，再按需回看对应片段。"],
+            "audience": localized_fallback_text(transcript_language, "audience"),
+            "learning_suggestions": [localized_fallback_text(transcript_language, "learning_suggestion")],
+            "mindmap_markdown": None,
         }
     )
 
@@ -476,32 +614,42 @@ def call_deepseek_summary(
     webpage_url: str | None,
     transcript_text: str,
     truncated: bool,
+    transcript_language: str | None = None,
 ) -> AiSummaryResult:
     if not DEEPSEEK_API_KEY:
         raise RuntimeError("Deepseek API Key 未配置。请在 .env 中设置 DEEPSEEK_API_KEY 后重启后端。")
 
+    target_language, language_rule = get_summary_language_instruction(transcript_language)
     system_prompt = (
-        "你是专业的视频学习助理。请阅读用户提供的字幕内容，生成可用于快速学习的视频总结。"
-        "只能根据字幕内容总结，不要编造字幕外的信息。必须输出严格 JSON，不要输出 Markdown 或解释文字。"
-        "所有字段都必须尽量填写，数组字段至少给出 3 项，除非字幕内容确实不足。"
+        "You are a professional video content analysis assistant. Generate an analytical summary from the transcript, not an exhaustive knowledge tree. "
+        "The mind map should help users understand the video quickly: central topic -> 4 to 5 analysis modules -> 2 to 3 key points per module. "
+        "Top-level modules should summarize the video's substance, such as core ideas, content structure, key evidence, method steps, conclusions, implications, or caveats. "
+        "Do not expand segment by segment on the timeline. Do not list every detail. Do not create deep hierarchies. "
+        "Keep only the most representative ideas in each module. Prefer synthesis and analysis over keyword stacking. "
+        "Return strict JSON only. Do not output Markdown or explanatory text. "
+        "Use only the transcript content and do not invent information outside it. "
+        "Fill every field when possible. Array fields should contain at least 3 items unless the transcript is too short. "
+        f"Output language: {target_language}. {language_rule}"
     )
     user_prompt = f"""
 视频标题：{title or "未知"}
 视频链接：{webpage_url or ""}
+字幕语言：{transcript_language or "unknown"}
+输出语言要求：{language_rule}
 字幕是否被截断：{"是" if truncated else "否"}
 
 请返回如下 JSON 对象，字段名必须完全一致：
 {{
-  "title": "视频标题",
-  "one_sentence": "用一句中文概括视频核心内容，不能为空",
-  "outline": ["按视频讲解顺序列出章节大纲"],
-  "key_points": ["提炼最重要的知识点或结论"],
+  "title": "Core topic keyword phrase in the required output language. Keep it short: 2-6 English words or 4-12 Chinese characters. Do not copy the full video title.",
+  "one_sentence": "One sentence summarizing the video's core content in the required output language. Must not be empty.",
+  "outline": ["4-5 analytical modules in the required output language. Format: 'Module name: key point 1; key point 2; key point 3'. Keep module names short. Avoid deep nesting and timeline-style listing."],
+  "key_points": ["4-6 most important ideas, judgments, or conclusions in the required output language"],
   "timeline": [
-    {{"time": "00:00", "title": "时间点主题", "summary": "该时间点讲了什么"}}
+    {{"time": "00:00", "title": "Timeline topic in the required output language", "summary": "What this moment covers, in the required output language"}}
   ],
-  "keywords": ["关键词"],
-  "audience": "适合观看的人群",
-  "learning_suggestions": ["如何高效学习或复习这个视频"]
+  "keywords": ["Keywords in the required output language"],
+  "audience": "Target audience in the required output language",
+  "learning_suggestions": ["How to study or review this video efficiently, in the required output language"]
 }}
 
 字幕内容：
@@ -521,12 +669,70 @@ def call_deepseek_summary(
         try:
             parsed = repair_deepseek_summary_json(content)
         except Exception:
-            return fallback_summary_from_transcript(title, transcript_text)
+            return fallback_summary_from_transcript(title, transcript_text, transcript_language)
     try:
-        parsed = normalize_summary_payload(parsed, title, transcript_text)
+        parsed = normalize_summary_payload(parsed, title, transcript_text, transcript_language)
         return AiSummaryResult.model_validate(parsed)
     except Exception:
-        return fallback_summary_from_transcript(title, transcript_text)
+        return fallback_summary_from_transcript(title, transcript_text, transcript_language)
+
+
+def build_mindmap_markdown_prompt(transcript_text: str, transcript_language: str | None = None) -> str:
+    truncated = transcript_text[:15_000]
+    _, language_rule = get_summary_language_instruction(transcript_language)
+    return f"""Please organize the following video transcript into a mind map structure.
+
+Language rule: {language_rule}
+
+Requirements:
+1. Use Markdown heading hierarchy only.
+2. The root node must use one `#` heading and represent the video topic.
+3. Main branches must use `##` headings and represent major chapters/modules.
+4. Key points must use `###` headings.
+5. Use `####` headings when a key point needs a more specific detail.
+6. Node text must be concise and suitable for a mind map.
+7. Do not output paragraphs, bullet lists, code fences, Markdown explanations, or any text outside the heading hierarchy.
+
+---
+Transcript:
+{truncated}"""
+
+
+def normalize_mindmap_markdown(markdown: str, fallback_title: str | None, transcript_language: str | None) -> str:
+    lines = []
+    for raw_line in str(markdown or "").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("```"):
+            continue
+        if re.match(r"^#{1,4}\s+\S", line):
+            lines.append(line)
+    if lines:
+        if not lines[0].startswith("# "):
+            root = fallback_title or localized_fallback_text(transcript_language, "timeline_title")
+            lines.insert(0, f"# {root}")
+        return "\n".join(lines)
+    root = fallback_title or localized_fallback_text(transcript_language, "timeline_title")
+    return f"# {root}"
+
+
+def call_deepseek_mindmap_markdown(
+    title: str | None,
+    transcript_text: str,
+    transcript_language: str | None = None,
+) -> str:
+    if not DEEPSEEK_API_KEY:
+        raise RuntimeError("Deepseek API Key 未配置。请在 .env 中设置 DEEPSEEK_API_KEY 后重启后端。")
+    content = request_deepseek_chat(
+        [
+            {
+                "role": "system",
+                "content": "You are a professional mind map generator. Convert transcript content into a clear Markdown heading hierarchy only.",
+            },
+            {"role": "user", "content": build_mindmap_markdown_prompt(transcript_text, transcript_language)},
+        ],
+        max_tokens=min(DEEPSEEK_MAX_TOKENS, 4096),
+    )
+    return normalize_mindmap_markdown(content, title, transcript_language)
 
 
 def call_deepseek_video_chat(
@@ -612,6 +818,130 @@ def write_summary_artifacts(
     )
 
 
+def _try_asr_fallback(
+    task_id: str,
+    url: str,
+    task_dir: Path,
+    cookies: str | None,
+    browser_cookies: str | None,
+    original_exc: NoTranscriptError,
+) -> None:
+    """Attempt ASR fallback when platform subtitles are unavailable.
+
+    If ASR_ENABLED is false or ASR fails, falls back to no_transcript.
+    """
+    if not ASR_ENABLED:
+        ai_summary_task_store.update(
+            task_id,
+            status="no_transcript",
+            progress=100,
+            message="未找到可用字幕",
+            error=str(original_exc),
+        )
+        return
+
+    logger.info("ASR fallback triggered for task %s", task_id)
+    try:
+        # Step 1: download media for ASR.
+        ai_summary_task_store.update(
+            task_id,
+            status="extracting",
+            progress=18,
+            message="无平台字幕，正在下载媒体用于语音转写",
+        )
+        media_path = download_media_for_asr(url, task_dir, cookies, browser_cookies)
+
+        # Step 2: prepare ASR request.
+        ai_summary_task_store.update(
+            task_id,
+            status="extracting",
+            progress=35,
+            message="媒体下载完成，准备语音转写",
+        )
+        # Import here to avoid circular dependency and respect ASR_ENABLED.
+        from app.services.asr_service import transcribe_file, ASRServiceError
+
+        # Step 3: call ASR service (this is the slow step).
+        ai_summary_task_store.update(
+            task_id,
+            status="extracting",
+            progress=38,
+            message="正在生成字幕，这是最耗时的步骤，请保持页面打开",
+        )
+        asr_result = transcribe_file(
+            file_path=media_path,
+            response_format="srt" if ASR_RESPONSE_FORMAT not in {"srt", "vtt"} else ASR_RESPONSE_FORMAT,
+            language=ASR_LANGUAGE,
+            model=ASR_MODEL,
+            timeout_seconds=ASR_TIMEOUT_SECONDS,
+        )
+
+        # Step 4: parse ASR SRT output using existing parser.
+        ai_summary_task_store.update(
+            task_id,
+            status="extracting",
+            progress=55,
+            message="语音转写完成，正在解析字幕",
+        )
+        segments = parse_vtt(asr_result.raw_content) if asr_result.response_format == "vtt" else parse_srt(asr_result.raw_content)
+        if not segments:
+            raise ASRServiceError("ASR 转写结果为空，未能解析出有效字幕片段")
+
+        # Step 5: reuse existing summary pipeline.
+        transcript_text, truncated = build_transcript_text(segments)
+        ai_summary_task_store.update(
+            task_id,
+            status="summarizing",
+            progress=68,
+            message="字幕已生成，正在调用 AI 生成总结",
+            transcript_language=asr_result.language,
+            transcript_segments=segments,
+        )
+        summary = call_deepseek_summary(
+            title=url,
+            webpage_url=url,
+            transcript_text=transcript_text,
+            truncated=truncated,
+            transcript_language=asr_result.language,
+        )
+        try:
+            summary.mindmap_markdown = call_deepseek_mindmap_markdown(url, transcript_text, asr_result.language)
+        except Exception as exc:
+            logger.warning("Mind map generation failed for ASR task %s: %s", task_id, exc)
+
+        # Step 6: save results.
+        ai_summary_task_store.update(
+            task_id,
+            status="summarizing",
+            progress=88,
+            message="AI 总结已生成，正在整理结果",
+        )
+        # Save a copy of the ASR-generated SRT for reference.
+        asr_srt_path = task_dir / f"asr_generated.{asr_result.response_format}"
+        asr_srt_path.write_text(asr_result.raw_content, encoding="utf-8")
+
+        write_summary_artifacts(task_dir, segments, summary, asr_srt_path)
+        ai_summary_task_store.update(
+            task_id,
+            status="completed",
+            progress=100,
+            message="AI 总结已完成（基于语音转写）",
+            summary=summary,
+            error=None,
+        )
+        logger.info("ASR fallback succeeded for task %s", task_id)
+
+    except Exception as asr_exc:
+        logger.warning("ASR fallback failed for task %s: %s", task_id, asr_exc)
+        ai_summary_task_store.update(
+            task_id,
+            status="no_transcript",
+            progress=100,
+            message="未找到可用字幕（语音转写未启用或失败）",
+            error=f"{original_exc}；语音转写失败：{asr_exc}",
+        )
+
+
 def generate_ai_summary_task(
     task_id: str,
     url: str,
@@ -645,7 +975,12 @@ def generate_ai_summary_task(
             webpage_url=info.get("webpage_url") or url,
             transcript_text=transcript_text,
             truncated=truncated,
+            transcript_language=language,
         )
+        try:
+            summary.mindmap_markdown = call_deepseek_mindmap_markdown(info.get("title"), transcript_text, language)
+        except Exception as exc:
+            logger.warning("Mind map generation failed for task %s: %s", task_id, exc)
         write_summary_artifacts(task_dir, segments, summary, subtitle_file)
         ai_summary_task_store.update(
             task_id,
@@ -656,13 +991,7 @@ def generate_ai_summary_task(
             error=None,
         )
     except NoTranscriptError as exc:
-        ai_summary_task_store.update(
-            task_id,
-            status="no_transcript",
-            progress=100,
-            message="未找到可用字幕",
-            error=str(exc),
-        )
+        _try_asr_fallback(task_id, url, task_dir, cookies, browser_cookies, exc)
     except Exception as exc:
         ai_summary_task_store.update(
             task_id,
@@ -709,7 +1038,13 @@ def generate_ai_summary_from_subtitle_task(
             webpage_url=webpage_url,
             transcript_text=transcript_text,
             truncated=truncated,
+            transcript_language=infer_subtitle_language(subtitle_path),
         )
+        subtitle_language = infer_subtitle_language(subtitle_path)
+        try:
+            summary.mindmap_markdown = call_deepseek_mindmap_markdown(title, transcript_text, subtitle_language)
+        except Exception as exc:
+            logger.warning("Mind map generation failed for subtitle task %s: %s", task_id, exc)
         write_summary_artifacts(task_dir, segments, summary, subtitle_path)
         ai_summary_task_store.update(
             task_id,

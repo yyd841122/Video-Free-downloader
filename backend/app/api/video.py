@@ -1,6 +1,8 @@
+from threading import BoundedSemaphore
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
-from app.core.config import DIRECT_LINK_TTL_SECONDS
+from app.core.config import DIRECT_LINK_TTL_SECONDS, MAX_CONCURRENT_DOWNLOAD_TASKS, MAX_CONCURRENT_INFO_TASKS
 from app.models.schemas import (
     DirectLinkResponse,
     DownloadTaskResponse,
@@ -14,19 +16,26 @@ from app.services.task_store import task_store
 from app.services.bilibili_auth_store import bili_auth_store
 
 router = APIRouter(prefix="/video")
+info_semaphore = BoundedSemaphore(MAX_CONCURRENT_INFO_TASKS)
 
 
 @router.post("/info", response_model=VideoInfoResponse)
 def video_info(payload: VideoInfoRequest) -> VideoInfoResponse:
+    if not info_semaphore.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="当前解析请求较多，请稍后再试")
     try:
         cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
         return extract_info(str(payload.url), cookies, payload.browser_cookies)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        info_semaphore.release()
 
 
 @router.post("/download", response_model=DownloadTaskResponse)
 def create_download_task(payload: VideoDownloadRequest, background_tasks: BackgroundTasks) -> DownloadTaskResponse:
+    if task_store.active_count() >= MAX_CONCURRENT_DOWNLOAD_TASKS:
+        raise HTTPException(status_code=429, detail="当前下载任务较多，请稍后再试")
     task = task_store.create(str(payload.url))
     cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
     background_tasks.add_task(

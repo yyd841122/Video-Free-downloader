@@ -1,6 +1,6 @@
 # AI Video Summary Implementation Notes
 
-Last updated: 2026-05-18
+Last updated: 2026-05-21
 
 ## Goal
 
@@ -39,6 +39,7 @@ User submits video URL
 -> backend downloads one preferred subtitle track
 -> backend parses SRT/VTT/JSON subtitles into timestamped segments
 -> Deepseek generates structured summary JSON
+-> Deepseek generates a separate Markdown heading hierarchy for the mind map
 -> transcript.json and summary.json are saved under backend/downloads/{task_id}
 -> frontend polls task status and renders result tabs
 ```
@@ -83,6 +84,16 @@ This fixed errors like:
 Expecting ',' delimiter: line 55 column 111
 ```
 
+## Language Handling
+
+AI outputs now follow the transcript language instead of always using Chinese.
+
+- For YouTube videos with `language=en-*`, English subtitles are preferred before Chinese translated captions.
+- For Chinese videos, Chinese subtitle tracks remain preferred.
+- The summary prompt explicitly requires all generated fields to use the transcript language.
+- Frontend labels in the summary panel switch between Chinese and English based on generated content.
+- Fallback summaries also use localized English/Chinese text.
+
 ## Frontend Implementation
 
 Updated files:
@@ -114,24 +125,34 @@ The result area was redesigned to follow the BibiGPT-style reading layout:
 
 ## Mind Map
 
-The mind map is rendered by `MindMapView.vue` from the structured summary.
+The mind map now follows the reference implementation in `E:\Clone-Project\free-video-downloader`.
+
+- Backend generates `summary.mindmap_markdown` as Markdown headings instead of asking the frontend to draw a custom tree from JSON.
+- Markdown format:
+  - `#` root topic
+  - `##` major modules
+  - `###` key points
+  - `####` optional details
+- Frontend renders the Markdown with `markmap-lib` and `markmap-view`.
+- If old tasks do not have `mindmap_markdown`, the frontend builds fallback Markdown from `outline`, `key_points`, `timeline`, `keywords`, and `learning_suggestions`.
 
 Current capabilities:
 
-- XMind-like branch layout.
-- Drag to pan.
-- Wheel zoom.
-- Toolbar zoom in/out.
+- Markmap/XMind-like branch layout.
 - Fit to view.
-- Reset view.
+- Fullscreen view.
+- Single download menu with `HD PNG` and `SVG`.
+- PNG export converts Markmap `foreignObject` labels into SVG `text` nodes before drawing to canvas, avoiding blank PNG exports in browsers.
+- SVG export uses the full content bounding box instead of the visible viewport.
 
-The zoom range is now:
+Frontend dependencies:
 
-```text
-20% - 170%
+```json
+{
+  "markmap-lib": "^0.18.12",
+  "markmap-view": "^0.18.12"
+}
 ```
-
-The center topic is derived from the video's core summary and keywords instead of simply copying the title.
 
 ## No-Subtitle Decision
 
@@ -152,6 +173,8 @@ Validated locally:
 - `python -m compileall app`
 - `npm.cmd run build`
 - YouTube subtitle 429 fix with `https://www.youtube.com/watch?v=uQbyEv0Z9JM`
+- English YouTube summaries keep English output and English UI section labels.
+- Markmap rendering and PNG/SVG export paths build successfully.
 - Deepseek malformed JSON repair/fallback path
 - Real AI summary task completed with `status=completed`, `progress=100`, and `error=null`
 

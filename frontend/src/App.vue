@@ -35,6 +35,8 @@ const pollingTimer = ref(null)
 const aiTask = ref(null)
 const aiLoading = ref(false)
 const aiPollingTimer = ref(null)
+const aiProgressTimer = ref(null)
+const displayAiProgress = ref(0)
 const transcriptExpanded = ref(false)
 const activeAiTab = ref('summary')
 const autoDownloadedTaskId = ref('')
@@ -55,10 +57,12 @@ const statusText = computed(() => {
   return map[task.value?.status] || task.value?.status || '待开始'
 })
 
-const canSubmit = computed(() => url.value.trim().length > 0 && !loading.value)
 const taskInProgress = computed(() =>
   ['queued', 'starting', 'downloading', 'processing'].includes(task.value?.status),
 )
+const aiTaskInProgress = computed(() => ['queued', 'extracting', 'summarizing'].includes(aiTask.value?.status))
+const parseLocked = computed(() => loading.value || downloading.value || taskInProgress.value || aiLoading.value || aiTaskInProgress.value)
+const canSubmit = computed(() => url.value.trim().length > 0 && !parseLocked.value)
 const canDownload = computed(() => info.value && selectedFormat.value && !downloading.value && !taskInProgress.value)
 const activeAuthSessionId = computed(() => (biliLoggedIn.value ? biliSessionId.value : ''))
 const platformWarnings = computed(() => info.value?.warnings || [])
@@ -73,20 +77,32 @@ const downloadProgress = computed(() => {
 const showDownloadProgress = computed(() =>
   ['queued', 'starting', 'downloading', 'processing', 'completed'].includes(task.value?.status),
 )
-const aiTaskInProgress = computed(() => ['queued', 'extracting', 'summarizing'].includes(aiTask.value?.status))
 const aiProgress = computed(() => {
   if (aiTask.value?.status === 'completed' || aiTask.value?.status === 'no_transcript') {
     return 100
   }
-  const value = Number(aiTask.value?.progress || 0)
+  const value = displayAiProgress.value || aiTask.value?.progress || 0
   return Math.min(100, Math.max(0, Math.round(value)))
 })
+const transcriptSegments = computed(() => aiTask.value?.transcript_segments || [])
+const aiStatusMessage = computed(() => String(aiTask.value?.message || ''))
+const aiNoTranscriptMessage = computed(() => {
+  const message = aiStatusMessage.value
+  if (/转写|语音|ASR|生成字幕/.test(message)) {
+    return '当前视频没有可提取的平台字幕，语音转写也未成功。你可以上传 SRT/VTT 字幕文件后继续生成 AI 总结。'
+  }
+  return '当前视频没有可提取的平台字幕或自动字幕。你可以上传 SRT/VTT 字幕文件后继续生成 AI 总结。'
+})
+const aiEstimateHint = computed(() => {
+  if (!aiTaskInProgress.value) return ''
+  return '正在生成 AI 总结，请稍等'
+})
 const visibleTranscriptSegments = computed(() => {
-  const segments = aiTask.value?.transcript_segments || []
+  const segments = transcriptSegments.value
   return transcriptExpanded.value ? segments : segments.slice(0, 10)
 })
 const transcriptText = computed(() =>
-  (aiTask.value?.transcript_segments || [])
+  transcriptSegments.value
     .map((segment) => `[${formatDuration(segment.start)}] ${segment.text}`)
     .join('\n'),
 )
@@ -97,15 +113,150 @@ const transcriptDownloadFormats = [
   { id: 'md', label: 'MD' },
   { id: 'json', label: 'JSON' },
 ]
+
+const getRealAiProgress = () => {
+  if (aiTask.value?.status === 'completed' || aiTask.value?.status === 'no_transcript') {
+    return 100
+  }
+  return Math.min(100, Math.max(0, Number(aiTask.value?.progress || 0)))
+}
+
+const getSmoothAiProgressCeiling = () => {
+  const real = getRealAiProgress()
+  const status = aiTask.value?.status
+  if (status === 'extracting') {
+    if (real >= 38) return 67
+    if (real >= 18) return 37
+    return 24
+  }
+  if (status === 'summarizing') {
+    if (real >= 68) return 87
+    return 76
+  }
+  if (status === 'queued') return 18
+  return real
+}
+
+const getEstimatedAsrSeconds = () => {
+  const duration = Number(info.value?.duration || 0)
+  if (!duration) return 240
+  if (duration <= 180) return 90
+  if (duration <= 600) return Math.round(duration * 0.75)
+  if (duration <= 1800) return Math.round(duration * 0.62)
+  if (duration <= 3600) return Math.round(duration * 0.5)
+  return Math.round(duration * 0.42)
+}
+
+const getAiProgressStep = () => {
+  const real = getRealAiProgress()
+  const status = aiTask.value?.status
+  if (status === 'extracting' && real >= 38) {
+    const estimatedSeconds = getEstimatedAsrSeconds()
+    const availablePoints = Math.max(1, getSmoothAiProgressCeiling() - displayAiProgress.value)
+    const intervalSeconds = 2.2
+    return Math.max(0.12, Math.min(1.2, (availablePoints * intervalSeconds) / estimatedSeconds))
+  }
+  if (status === 'summarizing') {
+    return 0.6
+  }
+  return 0.8
+}
+
+const syncDisplayAiProgress = () => {
+  const real = getRealAiProgress()
+  if (real >= displayAiProgress.value || !aiTaskInProgress.value) {
+    displayAiProgress.value = real
+  }
+}
+
+const stopAiProgressSmoothing = () => {
+  if (aiProgressTimer.value) {
+    window.clearInterval(aiProgressTimer.value)
+    aiProgressTimer.value = null
+  }
+}
+
+const startAiProgressSmoothing = () => {
+  stopAiProgressSmoothing()
+  syncDisplayAiProgress()
+  aiProgressTimer.value = window.setInterval(() => {
+    if (!aiTaskInProgress.value) {
+      syncDisplayAiProgress()
+      stopAiProgressSmoothing()
+      return
+    }
+    const real = getRealAiProgress()
+    if (real > displayAiProgress.value) {
+      displayAiProgress.value = real
+      return
+    }
+    const ceiling = getSmoothAiProgressCeiling()
+    if (displayAiProgress.value < ceiling) {
+      displayAiProgress.value = Math.min(ceiling, displayAiProgress.value + getAiProgressStep())
+    }
+  }, 2200)
+}
 const aiResultTabs = computed(() => [
-  { id: 'summary', label: '总结摘要', icon: '📋' },
-  { id: 'transcript', label: '字幕文本', icon: '📜' },
-  { id: 'mindmap', label: '思维导图', icon: '🧠' },
-  { id: 'chat', label: 'AI 问答', icon: '💬' },
+  { id: 'summary', label: aiContentLabels.value.summaryTab, icon: '📋' },
+  { id: 'transcript', label: aiContentLabels.value.transcriptTab, icon: '📜' },
+  { id: 'mindmap', label: aiContentLabels.value.mindmapTab, icon: '🧠' },
+  { id: 'chat', label: aiContentLabels.value.chatTab, icon: '💬' },
 ])
 const highlightIcons = ['💡', '🧠', '🚀', '🎯', '✨', '📌']
 const getHighlightIcon = (index) => highlightIcons[index % highlightIcons.length]
-const summaryTitle = computed(() => aiTask.value?.summary?.title || info.value?.title || aiTask.value?.title || '视频总结')
+const containsCjk = (value) => /[\u3400-\u9fff]/u.test(String(value || ''))
+const isEnglishSummary = computed(() => {
+  const summary = aiTask.value?.summary
+  const text = [
+    summary?.title,
+    summary?.one_sentence,
+    ...(summary?.outline || []),
+    ...(summary?.key_points || []),
+    ...(summary?.keywords || []),
+    summary?.audience,
+  ].join(' ')
+  return /[A-Za-z]/.test(text) && !containsCjk(text)
+})
+const aiContentLabels = computed(() =>
+  isEnglishSummary.value
+    ? {
+        summaryTab: 'Summary',
+        transcriptTab: 'Transcript',
+        mindmapTab: 'Mind Map',
+        chatTab: 'AI Q&A',
+        videoOverview: 'Video Overview',
+        contentOutline: 'Content Outline',
+        keyPoints: 'Key Points',
+        keywords: 'Keywords',
+        learningSuggestions: 'Learning Suggestions',
+        copyMarkdown: 'Copy MD',
+        downloadMarkdown: 'Download MD',
+        summaryTitleFallback: 'Video Summary',
+        pointFallback: 'Point',
+        highlightsHeading: 'Highlights',
+        outlineHeading: 'Outline',
+        timelineHeading: 'Timeline',
+      }
+    : {
+        summaryTab: '总结摘要',
+        transcriptTab: '字幕文本',
+        mindmapTab: '思维导图',
+        chatTab: 'AI 问答',
+        videoOverview: '视频概述',
+        contentOutline: '内容大纲',
+        keyPoints: '核心要点',
+        keywords: '关键词',
+        learningSuggestions: '学习建议',
+        copyMarkdown: '复制 MD',
+        downloadMarkdown: '下载 MD',
+        summaryTitleFallback: '视频总结',
+        pointFallback: '要点',
+        highlightsHeading: '亮点',
+        outlineHeading: '章节总结',
+        timelineHeading: '时间轴',
+      },
+)
+const summaryTitle = computed(() => aiTask.value?.summary?.title || info.value?.title || aiTask.value?.title || aiContentLabels.value.summaryTitleFallback)
 const summaryHighlights = computed(() => (aiTask.value?.summary?.key_points || []).map((point) => splitSummaryPoint(point)))
 const summaryOutlineSections = computed(() =>
   (aiTask.value?.summary?.outline || []).map((item, index) => {
@@ -116,7 +267,7 @@ const summaryOutlineSections = computed(() =>
       .filter((value, valueIndex, values) => value && values.indexOf(value) === valueIndex && value !== outlinePoint.title)
       .slice(0, 3)
     return {
-      title: outlinePoint.title || `要点 ${index + 1}`,
+      title: outlinePoint.title || `${aiContentLabels.value.pointFallback} ${index + 1}`,
       intro: outlinePoint.body,
       bullets,
     }
@@ -133,25 +284,25 @@ const summaryMarkdown = computed(() => {
     lines.push(`> ${summary.one_sentence}`, '')
   }
   if (summary.key_points?.length) {
-    lines.push('## 亮点')
+    lines.push(`## ${aiContentLabels.value.highlightsHeading}`)
     summary.key_points.forEach((point) => lines.push(`- ${point}`))
     lines.push('')
   }
   if (summary.outline?.length) {
-    lines.push('## 章节总结')
+    lines.push(`## ${aiContentLabels.value.outlineHeading}`)
     summary.outline.forEach((item, index) => lines.push(`${index + 1}. ${item}`))
     lines.push('')
   }
   if (summary.timeline?.length) {
-    lines.push('## 时间轴')
+    lines.push(`## ${aiContentLabels.value.timelineHeading}`)
     summary.timeline.forEach((item) => lines.push(`- **${item.time} ${item.title}**：${item.summary}`))
     lines.push('')
   }
   if (summary.keywords?.length) {
-    lines.push('## 关键词', summary.keywords.map((item) => `\`${item}\``).join(' '), '')
+    lines.push(`## ${aiContentLabels.value.keywords}`, summary.keywords.map((item) => `\`${item}\``).join(' '), '')
   }
   if (summary.learning_suggestions?.length) {
-    lines.push('## 学习建议')
+    lines.push(`## ${aiContentLabels.value.learningSuggestions}`)
     summary.learning_suggestions.forEach((item) => lines.push(`- ${item}`))
     lines.push('')
   }
@@ -257,7 +408,7 @@ const getSegmentEnd = (segments, index) => {
 }
 
 const buildTranscriptContent = (format) => {
-  const segments = aiTask.value?.transcript_segments || []
+  const segments = transcriptSegments.value
   const title = summaryTitle.value
   if (format === 'json') {
     return JSON.stringify(
@@ -310,6 +461,22 @@ const selectTranscriptDownload = (format) => {
   selectedTranscriptFormat.value = format
   transcriptDownloadOpen.value = false
   downloadTranscript(format)
+}
+
+const closeFloatingMenus = () => {
+  transcriptDownloadOpen.value = false
+}
+
+const handleDocumentClick = (event) => {
+  if (!event.target?.closest?.('.download-menu')) {
+    transcriptDownloadOpen.value = false
+  }
+}
+
+const handleDocumentKeydown = (event) => {
+  if (event.key === 'Escape') {
+    closeFloatingMenus()
+  }
 }
 
 const formatChoices = computed(() => {
@@ -396,6 +563,8 @@ const resetResult = () => {
     window.clearInterval(aiPollingTimer.value)
     aiPollingTimer.value = null
   }
+  stopAiProgressSmoothing()
+  displayAiProgress.value = 0
 }
 
 const clearUrl = () => {
@@ -421,6 +590,9 @@ const triggerFileDownload = (downloadUrl, taskId) => {
 }
 
 const parseInfo = async () => {
+  if (!canSubmit.value) {
+    return
+  }
   const requestUrl = url.value.trim()
   showBiliAuthPanel.value = isBiliUrl(requestUrl)
   resetResult()
@@ -469,9 +641,11 @@ const pollAiSummaryTask = (taskId) => {
   aiPollingTimer.value = window.setInterval(async () => {
     try {
       aiTask.value = await getAiSummaryTask(taskId)
+      syncDisplayAiProgress()
       if (['completed', 'failed', 'no_transcript'].includes(aiTask.value.status)) {
         window.clearInterval(aiPollingTimer.value)
         aiPollingTimer.value = null
+        stopAiProgressSmoothing()
       }
     } catch (err) {
       error.value = err.message
@@ -490,6 +664,7 @@ const startAiSummary = async () => {
   transcriptExpanded.value = false
   activeAiTab.value = 'summary'
   aiTask.value = null
+  displayAiProgress.value = 0
   try {
     const created = await createAiSummaryTask({
       url: url.value.trim(),
@@ -498,6 +673,8 @@ const startAiSummary = async () => {
       auth_session_id: activeAuthSessionId.value || null,
     })
     aiTask.value = created
+    syncDisplayAiProgress()
+    startAiProgressSmoothing()
     pollAiSummaryTask(created.task_id)
   } catch (err) {
     error.value = err.message
@@ -508,6 +685,8 @@ const startAiSummary = async () => {
 
 const handleSubtitleSummaryCreated = (created) => {
   aiTask.value = created
+  displayAiProgress.value = Number(created.progress || 0)
+  startAiProgressSmoothing()
   transcriptExpanded.value = false
   activeAiTab.value = 'summary'
   pollAiSummaryTask(created.task_id)
@@ -579,6 +758,13 @@ const forgetBiliSession = () => {
 }
 
 onMounted(async () => {
+  document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', handleDocumentKeydown)
+  // Sync browser-autofilled URL into Vue state so canSubmit works after refresh.
+  if (urlInput.value && !url.value) {
+    const autofilled = urlInput.value.value?.trim()
+    if (autofilled) url.value = autofilled
+  }
   const storedSessionId = window.localStorage.getItem(BILI_AUTH_STORAGE_KEY)
   if (!storedSessionId) {
     return
@@ -598,6 +784,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', handleDocumentKeydown)
   if (pollingTimer.value) {
     window.clearInterval(pollingTimer.value)
   }
@@ -607,6 +795,7 @@ onBeforeUnmount(() => {
   if (aiPollingTimer.value) {
     window.clearInterval(aiPollingTimer.value)
   }
+  stopAiProgressSmoothing()
 })
 
 const startBiliLogin = async () => {
@@ -663,11 +852,11 @@ const startBiliLogin = async () => {
         <a href="#pricing">套餐价格</a>
         <a href="#platforms">支持平台</a>
       </nav>
-      <button class="vip-button" type="button" aria-label="开通 VIP">
+      <button class="vip-button" type="button" aria-label="查看高级能力规划">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6-5.4-2.9-5.4 2.9 1-6-4.4-4.3 6.1-.9L12 3Z" />
         </svg>
-        开通 VIP
+        高级能力规划
       </button>
     </header>
 
@@ -675,7 +864,7 @@ const startBiliLogin = async () => {
       <section id="console" :class="['hero', { 'has-result': info, compact: heroCompact }]">
         <span v-if="!heroCompact" class="support-pill">
           <span></span>
-          支持 1800+ 平台，永久免费使用
+          支持 1800+ 平台，基础功能免费使用
         </span>
 
         <div v-if="!heroCompact" class="hero-copy">
@@ -720,7 +909,9 @@ const startBiliLogin = async () => {
                 <circle cx="11" cy="11" r="7" />
                 <path d="m16.5 16.5 4 4" />
               </svg>
-              {{ loading ? '解析中...' : '解析视频' }}
+              <template v-if="taskInProgress">{{ downloadProgress }}%</template>
+              <template v-else-if="loading"><span class="spin-loader" aria-hidden="true"></span></template>
+              <template v-else>解析视频</template>
             </button>
           </div>
 
@@ -806,16 +997,26 @@ const startBiliLogin = async () => {
           </div>
 
           <div class="download-footer">
-            <button class="download-button" :disabled="!canDownload" type="button" @click="downloadSelected">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
+            <button class="download-button" :class="{ 'is-loading': downloading || taskInProgress }" :disabled="!canDownload" type="button" @click="downloadSelected">
+              <span v-if="downloading || taskInProgress" class="button-loading-dots" aria-hidden="true">
+                <i></i>
+                <i></i>
+                <i></i>
+              </span>
+              <svg v-else viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 4v10" />
                 <path d="m7 10 5 5 5-5" />
                 <path d="M5 20h14" />
               </svg>
-              {{ downloading || taskInProgress ? '正在下载' : '立即下载' }}
+              {{ downloading || taskInProgress ? `${downloadProgress}%` : '立即下载' }}
             </button>
-            <button class="ai-summary-button" :disabled="aiLoading || aiTaskInProgress" type="button" @click="startAiSummary">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
+            <button class="ai-summary-button" :class="{ 'is-loading': aiTaskInProgress }" :disabled="aiLoading || aiTaskInProgress" type="button" @click="startAiSummary">
+              <span v-if="aiTaskInProgress" class="button-loading-dots blue" aria-hidden="true">
+                <i></i>
+                <i></i>
+                <i></i>
+              </span>
+              <svg v-else viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 3v4" />
                 <path d="M12 17v4" />
                 <path d="M3 12h4" />
@@ -825,30 +1026,21 @@ const startBiliLogin = async () => {
                 <path d="m17.5 6.5-2.8 2.8" />
                 <path d="m9.3 14.7-2.8 2.8" />
               </svg>
-              {{ aiTaskInProgress ? '总结中' : aiTask?.status === 'completed' ? '重新总结' : 'AI 总结' }}
+              {{ aiTaskInProgress ? `${aiProgress}%` : aiTask?.status === 'completed' ? '重新总结' : 'AI 总结' }}
             </button>
-            <span
-              v-if="aiTask && ['queued', 'extracting', 'summarizing', 'completed'].includes(aiTask.status)"
-              class="progress-ring ai-progress-ring"
-              :style="{ '--progress': `${aiProgress}%` }"
-              aria-label="AI 总结进度"
-              aria-live="polite"
-            >
-              <span>{{ aiProgress }}%</span>
-            </span>
-            <span
-              v-if="showDownloadProgress"
-              class="progress-ring"
-              :style="{ '--progress': `${downloadProgress}%` }"
-              aria-live="polite"
-            >
-              <span>{{ downloadProgress }}%</span>
-            </span>
             <span class="selected-hint">
               {{ selectedFormat ? `已选择：${formatChoices.find((item) => item.id === selectedFormat)?.title}` : '暂无可下载格式' }}
             </span>
           </div>
 
+          <p v-if="aiEstimateHint" class="ai-estimate-hint">
+            <span class="text-loading-dots" aria-hidden="true">
+              <i></i>
+              <i></i>
+              <i></i>
+            </span>
+            <span>{{ aiEstimateHint }}<span class="loading-ellipsis"></span></span>
+          </p>
           <p v-if="task?.status === 'failed'" class="download-error">{{ task.error }}</p>
           <p v-else-if="task?.download_url" class="download-success">下载已完成，已自动开始保存到本地。</p>
         </div>
@@ -856,7 +1048,7 @@ const startBiliLogin = async () => {
         <section class="ai-summary-panel" aria-label="AI 视频总结">
           <div v-if="aiTask" :class="['ai-task-state', { warning: aiTask.status === 'no_transcript' }]" aria-live="polite">
             <p v-if="aiTask.status === 'no_transcript'" class="ai-empty-state">
-              当前视频没有可提取的平台字幕或自动字幕。后续可接入音频转写，或支持上传 SRT/VTT 字幕后总结。
+              {{ aiNoTranscriptMessage }}
             </p>
             <SubtitleUploadPanel
               v-if="aiTask.status === 'no_transcript'"
@@ -898,18 +1090,18 @@ const startBiliLogin = async () => {
                   <header class="ai-doc-toolbar">
                     <h1 class="sr-only">{{ summaryTitle }}</h1>
                     <div class="ai-doc-actions" aria-label="总结导出操作">
-                      <button class="text-action-button" type="button" @click="copySummaryMarkdown">复制 MD</button>
-                      <button class="text-action-button" type="button" @click="downloadSummaryMarkdown">下载 MD</button>
+                      <button class="text-action-button" type="button" @click="copySummaryMarkdown">{{ aiContentLabels.copyMarkdown }}</button>
+                      <button class="text-action-button" type="button" @click="downloadSummaryMarkdown">{{ aiContentLabels.downloadMarkdown }}</button>
                     </div>
                   </header>
 
                   <section class="ai-doc-section ai-doc-overview">
-                    <h2>视频概述</h2>
+                    <h2>{{ aiContentLabels.videoOverview }}</h2>
                     <p>{{ aiTask.summary.one_sentence }}</p>
                   </section>
 
                   <section v-if="summaryOutlineSections.length" class="ai-doc-section ai-doc-outline">
-                    <h2>内容大纲</h2>
+                    <h2>{{ aiContentLabels.contentOutline }}</h2>
                     <ol>
                       <li v-for="(item, index) in summaryOutlineSections" :key="`${item.title}-${index}`">
                         <strong>{{ item.title }}</strong>
@@ -922,7 +1114,7 @@ const startBiliLogin = async () => {
                   </section>
 
                   <section v-if="summaryHighlights.length" class="ai-doc-section ai-doc-points">
-                    <h2>核心要点</h2>
+                    <h2>{{ aiContentLabels.keyPoints }}</h2>
                     <ul>
                       <li v-for="(point, index) in summaryHighlights" :key="`${point.title}-${index}`">
                         <strong>{{ point.title }}</strong>
@@ -932,14 +1124,14 @@ const startBiliLogin = async () => {
                   </section>
 
                   <section v-if="aiTask.summary.keywords?.length" class="ai-doc-section">
-                    <h2>关键词</h2>
+                    <h2>{{ aiContentLabels.keywords }}</h2>
                     <p class="ai-doc-keywords">
                       <span v-for="keyword in aiTask.summary.keywords" :key="keyword">{{ keyword }}</span>
                     </p>
                   </section>
 
                   <section v-if="aiTask.summary.learning_suggestions?.length" class="ai-doc-section">
-                    <h2>学习建议</h2>
+                    <h2>{{ aiContentLabels.learningSuggestions }}</h2>
                     <ul class="ai-doc-list">
                       <li v-for="item in aiTask.summary.learning_suggestions" :key="item">{{ item }}</li>
                     </ul>
@@ -958,7 +1150,7 @@ const startBiliLogin = async () => {
                   <div>
                     <h4>字幕文本</h4>
                     <p>
-                      共 {{ aiTask.transcript_segments.length }} 条字幕
+                      共 {{ transcriptSegments.length }} 条字幕
                       <span class="transcript-language">{{ aiTask.transcript_language || '未知语言' }}</span>
                     </p>
                   </div>
@@ -989,12 +1181,13 @@ const startBiliLogin = async () => {
                     </div>
                   </div>
                 </div>
-                <div class="transcript-list">
-                  <p v-for="segment in aiTask.transcript_segments" :key="`${segment.start}-${segment.text}`">
+                <div v-if="transcriptSegments.length" class="transcript-list">
+                  <p v-for="segment in transcriptSegments" :key="`${segment.start}-${segment.text}`">
                     <time>{{ formatDuration(segment.start) }}</time>
                     <span>{{ segment.text }}</span>
                   </p>
                 </div>
+                <p v-else class="transcript-empty">暂无可展示的字幕片段。</p>
               </section>
 
               <section
@@ -1084,40 +1277,64 @@ const startBiliLogin = async () => {
       <section id="pricing" class="pricing-section">
         <div class="section-heading">
           <h2>选择适合你的方案</h2>
-          <p>免费版满足日常使用，VIP 解锁全部高级功能</p>
+          <p>当前以免费基础能力为主，高级能力会在测试稳定后逐步开放</p>
         </div>
         <div class="plan-grid">
           <article class="plan-card free-plan">
             <div>
               <h3>免费版</h3>
-              <p>满足基础下载需求</p>
+              <p>满足日常解析和下载需求</p>
             </div>
             <p class="plan-price"><strong>¥0</strong><span>/永久</span></p>
             <ul>
-              <li>每日 5 次免费下载</li>
-              <li>最高支持 720p 清晰度</li>
+              <li>基础视频解析与下载</li>
+              <li>按平台开放能力选择清晰度</li>
               <li>支持 1800+ 平台</li>
               <li>基础视频信息解析</li>
             </ul>
-            <button type="button" class="plan-button muted">当前方案</button>
+            <button type="button" class="plan-button muted">当前可用</button>
           </article>
 
           <article class="plan-card vip-plan">
-            <span class="recommend-badge">推荐</span>
+            <span class="recommend-badge">规划中</span>
             <div>
-              <h3>VIP 高级版</h3>
-              <p>解锁全部功能，无限制使用</p>
+              <h3>高级能力</h3>
+              <p>面向高频使用和团队场景规划</p>
             </div>
-            <p class="plan-price"><strong>¥9.9</strong><span>/月</span><em>限时优惠</em></p>
+            <p class="plan-price"><strong>敬请期待</strong><span></span><em>测试中</em></p>
             <ul>
-              <li>无限次下载，无任何限制</li>
-              <li>最高支持 4K / 8K 画质</li>
-              <li>批量下载，一键搞定</li>
-              <li>字幕下载与翻译</li>
-              <li>AI 视频内容总结</li>
-              <li>专属客服优先支持</li>
+              <li>更高并发与更长文件保留</li>
+              <li>批量下载和任务历史</li>
+              <li>字幕下载、翻译与整理</li>
+              <li>AI 总结、思维导图和问答增强</li>
+              <li>更细的成本与额度控制</li>
             </ul>
-            <button type="button" class="plan-button primary">立即开通 VIP</button>
+            <button type="button" class="plan-button primary">功能规划中</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="faq-section" aria-labelledby="faq-title">
+        <div class="section-heading">
+          <h2 id="faq-title">常见问题</h2>
+          <p>了解 SaveAny 的使用范围、限制和 AI 总结能力</p>
+        </div>
+        <div class="faq-grid">
+          <article>
+            <h3>SaveAny 支持哪些平台？</h3>
+            <p>支持 YouTube、Bilibili、抖音、TikTok、Twitter/X 等常见公开视频平台，实际清晰度和可下载性取决于平台权限、登录状态和视频本身。</p>
+          </article>
+          <article>
+            <h3>可以下载 4K 或 8K 视频吗？</h3>
+            <p>如果平台公开提供对应格式且当前环境可访问，系统会尽量列出高质量格式。受登录、版权、DRM 或平台限制的内容不会承诺可下载。</p>
+          </article>
+          <article>
+            <h3>AI 视频总结如何工作？</h3>
+            <p>系统优先提取平台字幕或自动字幕，然后调用 AI 生成摘要、关键词、思维导图和问答上下文。无字幕视频可在本地测试环境使用 ASR 转写能力。</p>
+          </article>
+          <article>
+            <h3>使用时需要注意什么？</h3>
+            <p>请仅下载你有权保存的内容，不要用于绕过 DRM、付费墙或平台访问限制。线上部署前建议配置限流、文件清理和任务时长限制。</p>
           </article>
         </div>
       </section>

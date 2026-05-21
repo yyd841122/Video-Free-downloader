@@ -144,6 +144,7 @@ class AiSummaryResult(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     audience: str | None = None
     learning_suggestions: list[str] = Field(default_factory=list)
+    mindmap_markdown: str | None = None
 
 
 class AiSummaryCreateResponse(BaseModel):

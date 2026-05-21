@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import tempfile
 import json
+import logging
 import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -14,7 +16,7 @@ import requests
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from app.core.config import DEFAULT_FORMAT, DOWNLOAD_DIR
+from app.core.config import DEFAULT_FORMAT, DOWNLOAD_DIR, MAX_DOWNLOAD_BYTES, MAX_DOWNLOAD_SECONDS
 from app.models.schemas import FormatInfo, VideoInfoResponse
 from app.services.direct_link_store import DirectLink, direct_link_store
 from app.services.task_store import task_store
@@ -93,6 +95,23 @@ def apply_url_headers(options: dict[str, Any], url: str) -> None:
 def is_douyin_url(url: str) -> bool:
     hostname = urlparse(url).hostname or ""
     return "douyin.com" in hostname or "iesdouyin.com" in hostname
+
+
+def is_wechat_channels_url(url: str) -> bool:
+    hostname = urlparse(url).hostname or ""
+    return "channels.weixin.qq.com" in hostname
+
+
+def is_unsupported_url_error(exc: Exception) -> bool:
+    return "unsupported url" in str(exc).lower()
+
+
+def wechat_channels_unsupported_message() -> str:
+    return (
+        "微信视频号预览页暂不支持服务端直接解析。"
+        "该页面没有向普通网页请求公开下发视频流地址，建议先用浏览器插件捕获媒体请求，"
+        "或在微信内打开后复制可播放页面的真实媒体链接再尝试。"
+    )
 
 
 def is_douyin_fresh_cookie_error(exc: Exception) -> bool:
@@ -593,6 +612,8 @@ def extract_info(url: str, cookies: str | None = None, browser_cookies: str | No
             info = ydl.extract_info(url, download=False)
         return build_info_response(info or {}, include_raw=True, warnings=logger.warnings)
     except DownloadError as exc:
+        if is_wechat_channels_url(url) and is_unsupported_url_error(exc):
+            raise RuntimeError(wechat_channels_unsupported_message()) from exc
         if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
             info = extract_douyin_share_info(url)
             return build_info_response(info, include_raw=True, warnings=[])
@@ -621,7 +642,10 @@ def download_douyin_share_task(task_id: str, url: str, task_dir: Path, format_ch
     filename = f"{sanitize_filename(first_info.get('title'))} [{first_info.get('id') or task_id}].mp4"
     output_path = task_dir / filename
     total = get_douyin_total_size(first_format)
+    if total and total > MAX_DOWNLOAD_BYTES:
+        raise RuntimeError("视频文件超过当前下载大小限制")
     last_error: Exception | None = None
+    started_at = time.time()
 
     for attempt in range(1, DOUYIN_DOWNLOAD_ATTEMPTS + 1):
         info = first_info if attempt == 1 else extract_douyin_share_info(url)
@@ -659,8 +683,12 @@ def download_douyin_share_task(task_id: str, url: str, task_dir: Path, format_ch
                     for chunk in response.iter_content(chunk_size=DOUYIN_CHUNK_SIZE):
                         if not chunk:
                             continue
+                        if time.time() - started_at > MAX_DOWNLOAD_SECONDS:
+                            raise RuntimeError("下载任务超时，请选择更短的视频或稍后重试")
                         file.write(chunk)
                         downloaded += len(chunk)
+                        if downloaded > MAX_DOWNLOAD_BYTES:
+                            raise RuntimeError("视频文件超过当前下载大小限制")
                         if total:
                             task_store.update(
                                 task_id,
@@ -711,6 +739,7 @@ def download_video_task(
     output_template = str(task_dir / "%(title).160B [%(id)s].%(ext)s")
     cookie_file = create_cookie_file(cookies, url)
     browser_cookie_config = normalize_browser_cookies(browser_cookies)
+    started_at = time.time()
 
     if is_douyin_url(url) and (format_choice == DOUYIN_FALLBACK_FORMAT_ID or not cookies and not browser_cookie_config):
         try:
@@ -723,10 +752,16 @@ def download_video_task(
         return
 
     def progress_hook(data: dict[str, Any]) -> None:
+        if time.time() - started_at > MAX_DOWNLOAD_SECONDS:
+            raise RuntimeError("下载任务超时，请选择更短的视频或稍后重试")
         status = data.get("status")
         if status == "downloading":
             total = data.get("total_bytes") or data.get("total_bytes_estimate")
             downloaded = data.get("downloaded_bytes") or 0
+            if total and total > MAX_DOWNLOAD_BYTES:
+                raise RuntimeError("视频文件超过当前下载大小限制")
+            if downloaded and downloaded > MAX_DOWNLOAD_BYTES:
+                raise RuntimeError("视频文件超过当前下载大小限制")
             progress = 0.0
             if total:
                 progress = min(99.0, max(0.0, downloaded * 100 / total))
@@ -772,35 +807,90 @@ def download_video_task(
         options["cookiesfrombrowser"] = browser_cookie_config
 
     task_store.update(task_id, status="starting")
-    try:
-        with YoutubeDL(options) as ydl:
-            ydl.download([url])
-        candidates = [path for path in task_dir.iterdir() if path.is_file() and not path.name.endswith(".part")]
-        if not candidates:
-            raise RuntimeError("下载已结束，但没有找到输出文件。")
-        media_candidates = [path for path in candidates if path.suffix.lower() in {".mp4", ".webm", ".mkv", ".m4a", ".mp3"}]
-        final_file = max(media_candidates or candidates, key=lambda path: path.stat().st_size)
-        task_store.update(
-            task_id,
-            status="completed",
-            progress=100,
-            filename=final_file.name,
-            file_path=final_file,
-            speed=None,
-            eta=None,
-            error=None,
-        )
-    except Exception as exc:
-        if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
-            try:
-                download_douyin_share_task(task_id, url, task_dir, format_choice)
-            except Exception as fallback_exc:
-                task_store.update(task_id, status="failed", error=str(fallback_exc), speed=None, eta=None)
+
+    ssl_retry_logger = logging.getLogger(__name__)
+    max_ssl_retries = 3
+    last_exc: Exception | None = None
+
+    for attempt in range(1, max_ssl_retries + 1):
+        try:
+            # Clean up partial files from previous attempt.
+            for part_file in task_dir.glob("*.part"):
+                part_file.unlink(missing_ok=True)
+
+            with YoutubeDL(options) as ydl:
+                ydl.download([url])
+
+            candidates = [path for path in task_dir.iterdir() if path.is_file() and not path.name.endswith(".part")]
+            if not candidates:
+                raise RuntimeError("下载已结束，但没有找到输出文件。")
+            media_candidates = [path for path in candidates if path.suffix.lower() in {".mp4", ".webm", ".mkv", ".m4a", ".mp3"}]
+            final_file = max(media_candidates or candidates, key=lambda path: path.stat().st_size)
+            task_store.update(
+                task_id,
+                status="completed",
+                progress=100,
+                filename=final_file.name,
+                file_path=final_file,
+                speed=None,
+                eta=None,
+                error=None,
+            )
+            last_exc = None
+            break
+
+        except Exception as exc:
+            last_exc = exc
+
+            # Detect SSL / network transient errors that are worth retrying.
+            is_ssl_eof = "UNEXPECTED_EOF_WHILE_READING" in str(exc)
+            is_ssl_error = "SSL" in str(exc).upper() and ("EOF" in str(exc) or "CONNECTION" in str(exc).upper())
+            is_network_transient = any(
+                keyword in str(exc)
+                for keyword in ["ConnectionResetError", "IncompleteRead", "timeout", "Timed out"]
+            )
+
+            if (is_ssl_eof or is_ssl_error or is_network_transient) and attempt < max_ssl_retries:
+                ssl_retry_logger.warning(
+                    "Download attempt %d/%d failed (SSL/network error), retrying: %s",
+                    attempt, max_ssl_retries, exc,
+                )
+                task_store.update(
+                    task_id,
+                    status="downloading",
+                    progress=0,
+                    speed=None,
+                    eta=None,
+                    filename=None,
+                )
+                time.sleep(2 * attempt)  # Linear back-off: 2s, 4s, 6s.
+                continue
+
+            # Non-retryable error or all retries exhausted.
+            if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
+                try:
+                    download_douyin_share_task(task_id, url, task_dir, format_choice)
+                    last_exc = None
+                    break
+                except Exception as fallback_exc:
+                    last_exc = fallback_exc
+                    break
+            break
+
+    if last_exc is not None:
+        error_text = str(last_exc)
+        if is_wechat_channels_url(url) and is_unsupported_url_error(last_exc):
+            friendly_error = wechat_channels_unsupported_message()
+        elif "UNEXPECTED_EOF_WHILE_READING" in error_text or "SSL" in error_text.upper():
+            friendly_error = "网络连接异常，请稍后重试"
+        elif "ConnectionResetError" in error_text or "timeout" in error_text.lower():
+            friendly_error = "网络连接异常，请稍后重试"
         else:
-            task_store.update(task_id, status="failed", error=str(exc), speed=None, eta=None)
-    finally:
-        if cookie_file:
-            cookie_file.unlink(missing_ok=True)
+            friendly_error = error_text
+        task_store.update(task_id, status="failed", error=friendly_error, speed=None, eta=None)
+
+    if cookie_file:
+        cookie_file.unlink(missing_ok=True)
 
 
 def extract_direct_link(
@@ -855,6 +945,8 @@ def extract_direct_link(
         token = direct_link_store.create(DirectLink(url=selected_url, headers=headers, title=info.get("title")))
         return info, token, selected_url
     except DownloadError as exc:
+        if is_wechat_channels_url(url) and is_unsupported_url_error(exc):
+            raise RuntimeError(wechat_channels_unsupported_message()) from exc
         if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
             info = extract_douyin_share_info(url)
             selected_format = select_douyin_format(info, format_choice)
