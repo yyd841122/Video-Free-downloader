@@ -134,7 +134,9 @@ The mind map now follows the reference implementation in `E:\Clone-Project\free-
   - `###` key points
   - `####` optional details
 - Frontend renders the Markdown with `markmap-lib` and `markmap-view`.
-- If old tasks do not have `mindmap_markdown`, the frontend builds fallback Markdown from `outline`, `key_points`, `timeline`, `keywords`, and `learning_suggestions`.
+- Mind map content follows the reference project: the backend sends the full transcript to a dedicated Deepseek mind map prompt and stores the returned Markdown in `summary.mindmap_markdown`.
+- The frontend does not synthesize mind map content from `outline`, `key_points`, `timeline`, `keywords`, or `learning_suggestions`; it only renders the backend-generated Markdown.
+- The mind map prompt uses the reference wording: concise Markdown heading hierarchy, root topic, major modules, key points, optional fourth-level details, and no explanatory text outside Markdown.
 
 Current capabilities:
 
@@ -144,6 +146,18 @@ Current capabilities:
 - Single download menu with `HD PNG` and `SVG`.
 - PNG export converts Markmap `foreignObject` labels into SVG `text` nodes before drawing to canvas, avoiding blank PNG exports in browsers.
 - SVG export uses the full content bounding box instead of the visible viewport.
+
+Mind map generation guardrails:
+
+- The root topic is cleaned before rendering: hashtags, bracketed ids, and noisy full titles are stripped; Chinese AI programming tool review videos collapse to a concise topic such as `AI编程工具锐评`.
+- Generated Markdown is validated before it is accepted. Shallow maps with only `##` headings, wrong-language nodes, or template labels like `核心内容`, `关键细节`, `主要片段`, `复习重点`, and `要点 1` are rejected.
+- If Deepseek times out or returns an invalid map, the fallback map is built from the structured summary first, not raw transcript lines. This keeps branches semantic and prevents generic placeholder nodes.
+- Deepseek summary calls use a bounded transcript window and hard timeout so AI tasks do not remain stuck at `summarizing` indefinitely.
+
+Related regression cases:
+
+- `https://www.youtube.com/watch?v=t2HvHQpJTq0`: verifies English summaries, English mind map nodes, 1080P format visibility, and safe subtitle filenames.
+- `https://www.youtube.com/watch?v=uQbyEv0Z9JM`: verifies Chinese subtitle metadata with `requested_subtitles = None`, concise Chinese mind map root topics, and non-template branches.
 
 Frontend dependencies:
 
@@ -177,6 +191,8 @@ Validated locally:
 - Markmap rendering and PNG/SVG export paths build successfully.
 - Deepseek malformed JSON repair/fallback path
 - Real AI summary task completed with `status=completed`, `progress=100`, and `error=null`
+- Mind map quality checks reject shallow/template Markdown and validate real Chinese and English video tasks.
+- YouTube format normalization returns 1080P formats before low-resolution HLS variants.
 
 Notes:
 

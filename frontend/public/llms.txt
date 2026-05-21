@@ -1,0 +1,27 @@
+# SaveAny
+
+SaveAny is a web-based universal video downloader and AI video understanding tool.
+
+## Product Summary
+
+SaveAny helps users parse public video URLs, choose available media formats, download videos through a server-side workflow, extract subtitles, and generate AI summaries, mind maps, and Q&A context from video transcripts.
+
+## Main Capabilities
+
+- Public video URL parsing and format selection.
+- Server-side video download powered by yt-dlp.
+- Platform subtitle and automatic caption extraction.
+- AI video summaries, keywords, mind maps, and content Q&A.
+- Optional local ASR fallback for videos without platform subtitles during testing.
+
+## Important Limitations
+
+- SaveAny is intended for lawful personal backup, learning, and accessibility use cases.
+- It does not promise to bypass DRM, paywalls, private content, or platform access restrictions.
+- High-resolution availability depends on the platform, account permission, login state, and video source.
+- ASR fallback is under local testing and should be enabled explicitly in controlled environments.
+
+## Key Pages
+
+- Home: https://saveany.example.com/
+- Sitemap: https://saveany.example.com/sitemap.xml

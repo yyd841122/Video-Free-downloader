@@ -8,8 +8,6 @@ const props = defineProps({
   },
 })
 
-const MAX_MAIN_BRANCHES = 7
-const MAX_CHILDREN_PER_BRANCH = 4
 const mindmapSvg = ref(null)
 const downloadButtonRef = ref(null)
 const exportDownloadOpen = ref(false)
@@ -57,15 +55,8 @@ const labels = computed(() =>
         download: 'Download',
         downloadPng: 'HD PNG',
         downloadSvg: 'SVG',
-        overview: 'Overview',
-        coreTopic: 'Core Topic',
-        audience: 'Audience',
-        outline: 'Content Structure',
-        keyPoints: 'Key Takeaways',
-        timeline: 'Timeline',
-        keywords: 'Keywords',
-        suggestions: 'Learning Suggestions',
         root: 'Video Summary',
+        empty: 'Mind map content was not generated. Please run AI Summary again.',
       }
     : {
         title: '思维导图',
@@ -75,15 +66,8 @@ const labels = computed(() =>
         download: '下载',
         downloadPng: '高清 PNG',
         downloadSvg: 'SVG',
-        overview: '视频概述',
-        coreTopic: '核心主题',
-        audience: '适合人群',
-        outline: '内容结构',
-        keyPoints: '关键结论',
-        timeline: '时间轴',
-        keywords: '关键词',
-        suggestions: '学习建议',
         root: '视频总结',
+        empty: '思维导图内容未生成，请重新运行 AI 总结。',
       },
 )
 
@@ -95,104 +79,13 @@ const getSafeFilename = (name, fallback = 'mind-map') => {
   return cleaned || fallback
 }
 
-const normalizeHeadingLine = (line) => cleanText(line).replace(/^#{1,6}\s*/, '')
-
-const hasValidHeadingMarkdown = (value) =>
-  String(value || '')
-    .split(/\r?\n/)
-    .some((line) => /^#{1,6}\s+\S/.test(line.trim()))
-
-const splitSummaryPoint = (value) => {
-  const text = cleanText(value)
-  const match = text.match(/^([^：:]{2,72})[：:]\s*(.+)$/)
-  if (!match) return { title: text, details: [] }
-  return {
-    title: cleanText(match[1]),
-    details: cleanText(match[2])
-      .split(/[;；。]\s*|[.!?]\s+/)
-      .map(cleanText)
-      .filter(Boolean)
-      .slice(0, MAX_CHILDREN_PER_BRANCH),
-  }
-}
-
-const fallbackMindmapMarkdown = computed(() => {
-  const lines = [`# ${cleanText(props.summary.title || labels.value.root)}`]
-
-  if (props.summary.one_sentence) {
-    lines.push(`## ${labels.value.overview}`)
-    lines.push(`### ${labels.value.coreTopic}`)
-    lines.push(`#### ${cleanText(props.summary.one_sentence)}`)
-  }
-
-  if (props.summary.outline?.length) {
-    lines.push(`## ${labels.value.outline}`)
-    props.summary.outline.slice(0, MAX_MAIN_BRANCHES).forEach((item) => {
-      const point = splitSummaryPoint(item)
-      if (!point.title) return
-      lines.push(`### ${point.title}`)
-      point.details.forEach((detail) => lines.push(`#### ${detail}`))
-    })
-  }
-
-  if (props.summary.key_points?.length) {
-    lines.push(`## ${labels.value.keyPoints}`)
-    props.summary.key_points.slice(0, MAX_MAIN_BRANCHES).forEach((item) => {
-      const point = splitSummaryPoint(item)
-      if (!point.title) return
-      lines.push(`### ${point.title}`)
-      point.details.forEach((detail) => lines.push(`#### ${detail}`))
-    })
-  }
-
-  if (props.summary.timeline?.length) {
-    lines.push(`## ${labels.value.timeline}`)
-    props.summary.timeline.slice(0, 6).forEach((item) => {
-      const title = cleanText(`${item.time || ''} ${item.title || ''}`)
-      if (!title) return
-      lines.push(`### ${title}`)
-      if (item.summary) lines.push(`#### ${cleanText(item.summary)}`)
-    })
-  }
-
-  if (props.summary.keywords?.length) {
-    lines.push(`## ${labels.value.keywords}`)
-    props.summary.keywords.slice(0, 10).forEach((item) => lines.push(`### ${cleanText(item)}`))
-  }
-
-  if (props.summary.learning_suggestions?.length) {
-    lines.push(`## ${labels.value.suggestions}`)
-    props.summary.learning_suggestions.slice(0, 5).forEach((item) => lines.push(`### ${cleanText(item)}`))
-  }
-
-  if (props.summary.audience) {
-    lines.push(`## ${labels.value.audience}`)
-    lines.push(`### ${cleanText(props.summary.audience)}`)
-  }
-
-  return lines.join('\n')
-})
-
-const mindmapMarkdown = computed(() => {
-  const generated = String(props.summary.mindmap_markdown || '').trim()
-  if (!hasValidHeadingMarkdown(generated)) {
-    return fallbackMindmapMarkdown.value
-  }
-  const lines = generated
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => /^#{1,6}\s+\S/.test(line))
-    .map((line) => {
-      const level = Math.min(4, (line.match(/^#+/)?.[0].length || 1))
-      return `${'#'.repeat(level)} ${normalizeHeadingLine(line)}`
-    })
-  return lines.join('\n')
-})
+const mindmapMarkdown = computed(() => String(props.summary.mindmap_markdown || '').trim())
 
 const renderMindmap = async () => {
   await nextTick()
-  if (!mindmapSvg.value || !mindmapMarkdown.value) return
+  if (!mindmapSvg.value) return
   mindmapSvg.value.innerHTML = ''
+  if (!mindmapMarkdown.value) return
   const { Transformer, Markmap } = await loadMarkmapModules()
   const transformer = new Transformer()
   const { root } = transformer.transform(mindmapMarkdown.value)
@@ -236,6 +129,46 @@ const downloadBlob = (blob, filename) => {
 
 const getExportFilename = (extension) => `${getSafeFilename(props.summary.title || labels.value.root)}-mindmap.${extension}`
 
+const EXPORT_FONT_SIZE = 16
+const EXPORT_LINE_HEIGHT = 22
+const EXPORT_FONT_FAMILY = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
+const EXPORT_FONT = `500 ${EXPORT_FONT_SIZE}px ${EXPORT_FONT_FAMILY}`
+
+const measureExportText = (() => {
+  let context
+  return (text) => {
+    if (!context) {
+      const canvas = document.createElement('canvas')
+      context = canvas.getContext('2d')
+    }
+    if (!context) return String(text || '').length * EXPORT_FONT_SIZE * 0.55
+    context.font = EXPORT_FONT
+    return context.measureText(String(text || '')).width
+  }
+})()
+
+const wrapExportText = (text, maxWidth) => {
+  const value = cleanText(text)
+  if (!value) return []
+  const width = Math.max(120, maxWidth)
+  const tokens = containsCjk(value) ? Array.from(value) : value.split(/(\s+)/).filter(Boolean)
+  const lines = []
+  let current = ''
+
+  tokens.forEach((token) => {
+    const next = current ? `${current}${token}` : token.trimStart()
+    if (current && measureExportText(next) > width) {
+      lines.push(current.trim())
+      current = token.trimStart()
+      return
+    }
+    current = next
+  })
+
+  if (current.trim()) lines.push(current.trim())
+  return lines.length ? lines : [value]
+}
+
 const buildExportableSvg = () => {
   if (!mindmapSvg.value) return
   const cloned = mindmapSvg.value.cloneNode(true)
@@ -245,6 +178,8 @@ const buildExportableSvg = () => {
       element.setAttribute('transform', 'translate(0,0) scale(1)')
     }
   })
+  const rootGroup = cloned.querySelector('g')
+  rootGroup?.removeAttribute('transform')
   cloned.querySelectorAll('foreignObject').forEach((foreignObject) => {
     const textContent = foreignObject.textContent?.trim() || ''
     if (!textContent) {
@@ -253,16 +188,49 @@ const buildExportableSvg = () => {
     }
     const x = Number.parseFloat(foreignObject.getAttribute('x') || '0') || 0
     const y = Number.parseFloat(foreignObject.getAttribute('y') || '0') || 0
+    const w = Number.parseFloat(foreignObject.getAttribute('width') || '360') || 360
     const h = Number.parseFloat(foreignObject.getAttribute('height') || '20') || 20
+    const lines = wrapExportText(textContent, w - 12)
     const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text')
     textElement.setAttribute('x', String(x + 4))
-    textElement.setAttribute('y', String(y + h / 2 + 5))
-    textElement.setAttribute('font-size', '14')
-    textElement.setAttribute('font-family', 'Inter, Arial, sans-serif')
-    textElement.setAttribute('fill', '#333333')
-    textElement.setAttribute('dominant-baseline', 'middle')
-    textElement.textContent = textContent
+    textElement.setAttribute('y', String(y + Math.max(15, (h - (lines.length - 1) * EXPORT_LINE_HEIGHT) / 2)))
+    textElement.setAttribute('font-size', String(EXPORT_FONT_SIZE))
+    textElement.setAttribute('font-family', EXPORT_FONT_FAMILY)
+    textElement.setAttribute('fill', '#1f2937')
+    textElement.setAttribute('font-weight', '500')
+    textElement.setAttribute('dominant-baseline', 'central')
+    lines.forEach((line, index) => {
+      const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
+      tspan.setAttribute('x', String(x + 4))
+      tspan.setAttribute('dy', index === 0 ? '0' : String(EXPORT_LINE_HEIGHT))
+      tspan.textContent = line
+      textElement.appendChild(tspan)
+    })
     foreignObject.parentNode?.replaceChild(textElement, foreignObject)
+  })
+  cloned.querySelectorAll('.markmap-link, path.markmap-link').forEach((path) => {
+    const depth = Number.parseInt(path.getAttribute('data-depth') || '3', 10)
+    path.setAttribute('fill', 'none')
+    path.setAttribute('stroke-linecap', 'round')
+    path.setAttribute('stroke-linejoin', 'round')
+    path.setAttribute('stroke-width', depth <= 2 ? '1.35' : depth === 3 ? '1.05' : '0.85')
+    if (!path.getAttribute('stroke') || path.getAttribute('stroke') === 'currentColor') {
+      path.setAttribute('stroke', '#64748b')
+    }
+  })
+  cloned.querySelectorAll('.markmap-node line').forEach((line) => {
+    const parent = line.closest('.markmap-node')
+    const depth = Number.parseInt(parent?.getAttribute('data-depth') || '3', 10)
+    line.setAttribute('stroke-width', depth <= 2 ? '1.2' : depth === 3 ? '0.95' : '0.8')
+    line.setAttribute('stroke-linecap', 'round')
+    if (!line.getAttribute('stroke') || line.getAttribute('stroke') === 'currentColor') {
+      line.setAttribute('stroke', '#94a3b8')
+    }
+  })
+  cloned.querySelectorAll('.markmap-node > circle').forEach((circle) => {
+    circle.setAttribute('r', '4.2')
+    circle.setAttribute('stroke-width', '1')
+    circle.setAttribute('fill', '#ffffff')
   })
   return cloned
 }
@@ -276,42 +244,124 @@ const serializeSvg = (svgElement) => {
   return svgString
 }
 
-const getContentBBox = () => {
-  const svgElement = mindmapSvg.value
+const getTranslateValues = (transform = '') => {
+  const match = transform.match(/translate\(\s*([-\d.e]+)(?:[,\s]+([-\d.e]+))?\s*\)/)
+  return {
+    x: match ? Number.parseFloat(match[1]) || 0 : 0,
+    y: match ? Number.parseFloat(match[2]) || 0 : 0,
+  }
+}
+
+const expandExportBounds = (bounds, x, y) => {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return
+  bounds.minX = Math.min(bounds.minX, x)
+  bounds.minY = Math.min(bounds.minY, y)
+  bounds.maxX = Math.max(bounds.maxX, x)
+  bounds.maxY = Math.max(bounds.maxY, y)
+}
+
+const getFallbackContentBBox = (svgElement) => {
+  const bounds = {
+    minX: Number.POSITIVE_INFINITY,
+    minY: Number.POSITIVE_INFINITY,
+    maxX: Number.NEGATIVE_INFINITY,
+    maxY: Number.NEGATIVE_INFINITY,
+  }
+
+  svgElement.querySelectorAll('path[d]').forEach((path) => {
+    const values = (path.getAttribute('d') || '').match(/-?\d+(?:\.\d+)?(?:e[-+]?\d+)?/gi) || []
+    for (let index = 0; index < values.length - 1; index += 2) {
+      expandExportBounds(bounds, Number.parseFloat(values[index]), Number.parseFloat(values[index + 1]))
+    }
+  })
+
+  svgElement.querySelectorAll('.markmap-node').forEach((node) => {
+    const offset = getTranslateValues(node.getAttribute('transform') || '')
+    node.querySelectorAll('line').forEach((line) => {
+      const x1 = Number.parseFloat(line.getAttribute('x1') || '0') + offset.x
+      const y1 = Number.parseFloat(line.getAttribute('y1') || '0') + offset.y
+      const x2 = Number.parseFloat(line.getAttribute('x2') || '0') + offset.x
+      const y2 = Number.parseFloat(line.getAttribute('y2') || '0') + offset.y
+      expandExportBounds(bounds, x1, y1)
+      expandExportBounds(bounds, x2, y2)
+    })
+    node.querySelectorAll('circle').forEach((circle) => {
+      const cx = Number.parseFloat(circle.getAttribute('cx') || '0') + offset.x
+      const cy = Number.parseFloat(circle.getAttribute('cy') || '0') + offset.y
+      const r = Number.parseFloat(circle.getAttribute('r') || '0') + 2
+      expandExportBounds(bounds, cx - r, cy - r)
+      expandExportBounds(bounds, cx + r, cy + r)
+    })
+    node.querySelectorAll('text').forEach((text) => {
+      const x = Number.parseFloat(text.getAttribute('x') || '0') + offset.x
+      const y = Number.parseFloat(text.getAttribute('y') || '0') + offset.y
+      const lineCount = Math.max(1, text.querySelectorAll('tspan').length || 1)
+      const lineWidths = Array.from(text.querySelectorAll('tspan')).map((tspan) => measureExportText(tspan.textContent || ''))
+      const width = Math.max(measureExportText(text.textContent || ''), ...lineWidths, 80)
+      expandExportBounds(bounds, x, y - EXPORT_LINE_HEIGHT)
+      expandExportBounds(bounds, x + width + 16, y + lineCount * EXPORT_LINE_HEIGHT)
+    })
+  })
+
+  if (![bounds.minX, bounds.minY, bounds.maxX, bounds.maxY].every(Number.isFinite)) {
+    return { x: -60, y: -60, width: 1440, height: 1080 }
+  }
+
+  return {
+    x: bounds.minX,
+    y: bounds.minY,
+    width: bounds.maxX - bounds.minX,
+    height: bounds.maxY - bounds.minY,
+  }
+}
+
+const getContentBBox = (targetSvg = mindmapSvg.value) => {
+  const svgElement = targetSvg
   if (!svgElement) return { x: 0, y: 0, width: 1200, height: 800 }
+  const wasConnected = svgElement.isConnected
+  let host
+  if (!wasConnected) {
+    host = document.createElement('div')
+    host.style.cssText = 'position:absolute;left:-100000px;top:-100000px;width:1px;height:1px;overflow:visible;opacity:0;pointer-events:none;'
+    svgElement.setAttribute('viewBox', '-10000 -10000 20000 20000')
+    svgElement.setAttribute('width', '20000')
+    svgElement.setAttribute('height', '20000')
+    host.appendChild(svgElement)
+    document.body.appendChild(host)
+  }
   const rootGroup = svgElement.querySelector('g')
-  if (rootGroup) {
-    try {
-      const bbox = rootGroup.getBBox()
-      if (bbox.width > 0 && bbox.height > 0) {
-        const transform = rootGroup.getAttribute('transform') || ''
-        const translateMatch = transform.match(/translate\(\s*([-\d.e]+)\s*[,\s]\s*([-\d.e]+)\s*\)/)
-        const scaleMatch = transform.match(/scale\(\s*([-\d.e]+)/)
-        const tx = translateMatch ? Number.parseFloat(translateMatch[1]) : 0
-        const ty = translateMatch ? Number.parseFloat(translateMatch[2]) : 0
-        const scale = scaleMatch ? Number.parseFloat(scaleMatch[1]) : 1
-        return {
-          x: bbox.x * scale + tx,
-          y: bbox.y * scale + ty,
-          width: bbox.width * scale,
-          height: bbox.height * scale,
+  try {
+    if (rootGroup) {
+      try {
+        const bbox = rootGroup.getBBox()
+        if (bbox.width > 0 && bbox.height > 0) {
+          return {
+            x: bbox.x,
+            y: bbox.y,
+            width: bbox.width,
+            height: bbox.height,
+          }
         }
+      } catch {
+        // Fallback below.
       }
+    }
+    try {
+      const bbox = svgElement.getBBox()
+      if (bbox.width > 0 && bbox.height > 0) return bbox
     } catch {
       // Fallback below.
     }
+    return getFallbackContentBBox(svgElement)
+  } finally {
+    if (host) {
+      host.remove()
+    }
   }
-  try {
-    const bbox = svgElement.getBBox()
-    if (bbox.width > 0 && bbox.height > 0) return bbox
-  } catch {
-    // Fallback below.
-  }
-  return { x: 0, y: 0, width: 1200, height: 800 }
 }
 
 const setFullViewBox = (svgClone) => {
-  const dims = getContentBBox()
+  const dims = getContentBBox(svgClone)
   const padding = 60
   const vx = dims.x - padding
   const vy = dims.y - padding
@@ -446,6 +496,7 @@ onBeforeUnmount(() => {
 
     <div class="mindmap-wrapper">
       <svg ref="mindmapSvg" class="mindmap-svg" />
+      <p v-if="!mindmapMarkdown" class="mindmap-empty">{{ labels.empty }}</p>
     </div>
   </section>
 </template>
@@ -507,6 +558,19 @@ onBeforeUnmount(() => {
   background: #ffffff;
   border: 1px solid #edf1f7;
   border-radius: 10px;
+}
+
+.mindmap-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .mindmap-svg {

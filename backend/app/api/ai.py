@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 
-from app.core.config import DOWNLOAD_DIR, SUBTITLE_UPLOAD_MAX_BYTES
+from app.core.config import DOWNLOAD_DIR, MAX_CONCURRENT_AI_TASKS, SUBTITLE_UPLOAD_MAX_BYTES
 from app.models.schemas import AiChatRequest, AiChatResponse, AiSummaryCreateResponse, AiSummaryRequest, AiSummaryStatusResponse
 from app.services.ai_summary_service import call_deepseek_video_chat, generate_ai_summary_from_subtitle_task, generate_ai_summary_task
 from app.services.ai_task_store import ai_summary_task_store
@@ -17,6 +17,8 @@ def create_ai_summary_task(
     payload: AiSummaryRequest,
     background_tasks: BackgroundTasks,
 ) -> AiSummaryCreateResponse:
+    if ai_summary_task_store.active_count() >= MAX_CONCURRENT_AI_TASKS:
+        raise HTTPException(status_code=429, detail="当前已有 AI 总结任务正在处理，请等待当前任务完成后再试")
     task = ai_summary_task_store.create(str(payload.url))
     cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
     background_tasks.add_task(
@@ -36,6 +38,8 @@ async def create_ai_summary_from_subtitle(
     title: str | None = Form(default=None, max_length=512),
     url: str | None = Form(default=None, max_length=20_000),
 ) -> AiSummaryCreateResponse:
+    if ai_summary_task_store.active_count() >= MAX_CONCURRENT_AI_TASKS:
+        raise HTTPException(status_code=429, detail="当前已有 AI 总结任务正在处理，请等待当前任务完成后再试")
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in ALLOWED_SUBTITLE_SUFFIXES:
         raise HTTPException(status_code=400, detail="仅支持上传 .srt 或 .vtt 字幕文件")

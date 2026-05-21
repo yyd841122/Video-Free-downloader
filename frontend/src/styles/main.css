@@ -818,6 +818,89 @@ fieldset legend,
 .download-button svg {
   width: 19px;
   height: 19px;
+  transition: transform 0.3s ease;
+}
+
+.ai-summary-button svg {
+  transition: transform 0.3s ease;
+}
+
+/* Top parse-button spin loader */
+.spin-loader {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin-smooth 0.8s linear infinite;
+}
+
+@keyframes spin-smooth {
+  to { transform: rotate(360deg); }
+}
+
+/* Download button progress pulse glow */
+.download-button.is-loading {
+  animation: btn-glow 2s ease-in-out infinite;
+}
+
+.button-loading-dots,
+.text-loading-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.button-loading-dots i,
+.text-loading-dots i {
+  display: block;
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  border-radius: 999px;
+  animation: dot-bounce 1s ease-in-out infinite;
+}
+
+.button-loading-dots i:nth-child(2),
+.text-loading-dots i:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.button-loading-dots i:nth-child(3),
+.text-loading-dots i:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+.button-loading-dots.blue {
+  color: #367cff;
+}
+
+@keyframes dot-bounce {
+  0%, 80%, 100% {
+    opacity: 0.36;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes btn-glow {
+  0%, 100% { box-shadow: 0 16px 32px rgba(54, 124, 255, 0.24); }
+  50%      { box-shadow: 0 16px 32px rgba(54, 124, 255, 0.44); }
+}
+
+/* AI summary button loading pulse */
+.ai-summary-button.is-loading {
+  animation: ai-btn-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes ai-btn-pulse {
+  0%, 100% { box-shadow: 0 12px 24px rgba(54, 124, 255, 0.1); }
+  50%      { box-shadow: 0 12px 32px rgba(54, 124, 255, 0.26); }
 }
 
 .download-button:disabled {
@@ -849,6 +932,27 @@ fieldset legend,
   height: 32px;
   background: #ffffff;
   border-radius: 50%;
+}
+
+.primary-button,
+.download-button,
+.ai-summary-button,
+.text-action-button,
+.format-card,
+.plan-button,
+.vip-button {
+  touch-action: manipulation;
+}
+
+.primary-button:focus-visible,
+.download-button:focus-visible,
+.ai-summary-button:focus-visible,
+.text-action-button:focus-visible,
+.format-card:focus-visible,
+.plan-button:focus-visible,
+.vip-button:focus-visible {
+  outline: 3px solid rgba(54, 124, 255, 0.24);
+  outline-offset: 2px;
 }
 
 .selected-hint {
@@ -1089,6 +1193,45 @@ fieldset legend,
 .ai-progress-ring {
   width: 44px;
   height: 44px;
+}
+
+.ai-progress-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-estimate-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #2563eb;
+  font-weight: 800;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  padding: 8px 12px;
+  max-width: 100%;
+}
+
+.loading-ellipsis::after {
+  display: inline-block;
+  width: 1.4em;
+  overflow: hidden;
+  vertical-align: bottom;
+  content: "...";
+  animation: ellipsis-steps 1.2s steps(4, end) infinite;
+}
+
+@keyframes ellipsis-steps {
+  from {
+    width: 0;
+  }
 }
 
 .ai-result-tabs {
@@ -1439,6 +1582,18 @@ fieldset legend,
   font-size: 14px;
 }
 
+.transcript-empty {
+  margin: 16px 0 0;
+  padding: 18px;
+  color: #778397;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  background: #f8fbff;
+  border: 1px dashed #dce8f7;
+  border-radius: 12px;
+}
+
 .transcript-language {
   display: inline-flex;
   min-height: 22px;
@@ -1596,6 +1751,43 @@ fieldset legend,
   text-align: center;
 }
 
+.faq-section {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 22px 24px 72px;
+  text-align: center;
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 30px;
+  text-align: left;
+}
+
+.faq-grid article {
+  padding: 22px;
+  background: #ffffff;
+  border: 1px solid #e8edf4;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(37, 48, 72, 0.05);
+}
+
+.faq-grid h3 {
+  margin: 0 0 10px;
+  color: #17202e;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.faq-grid p {
+  margin: 0;
+  color: #667285;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
 .plan-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(280px, 1fr));
@@ -1637,7 +1829,7 @@ fieldset legend,
 }
 
 .plan-price strong {
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 950;
   letter-spacing: 0;
 }
@@ -1828,7 +2020,8 @@ fieldset legend,
   .result-layout,
   .result-panel,
   .feature-grid,
-  .plan-grid {
+  .plan-grid,
+  .faq-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1840,6 +2033,10 @@ fieldset legend,
   .pricing-section {
     padding-top: 46px;
     padding-bottom: 54px;
+  }
+
+  .faq-section {
+    padding-top: 14px;
   }
 
   .plan-grid {
@@ -1972,6 +2169,10 @@ fieldset legend,
     padding-bottom: 46px;
   }
 
+  .faq-section {
+    padding: 12px 16px 48px;
+  }
+
   .plan-grid {
     gap: 16px;
     margin-top: 26px;
@@ -2079,9 +2280,24 @@ fieldset legend,
     align-self: center;
   }
 
+  .ai-progress-group {
+    align-self: center;
+  }
+
   .task-card {
     margin-right: 18px;
     margin-left: 18px;
   }
 
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

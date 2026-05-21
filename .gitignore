@@ -14,6 +14,9 @@ backend/downloads/*
 backend/*.log
 frontend/*.log
 .research/
+.codex-research/
+tmp/
+.claude/settings.local.json
 
 # Local environment
 .env

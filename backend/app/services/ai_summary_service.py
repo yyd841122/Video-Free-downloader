@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import queue
 import re
+import threading
 from html import unescape
 from pathlib import Path
 from typing import Any
@@ -59,6 +61,7 @@ PREFERRED_SUBTITLE_LANGUAGES = (
 )
 MAX_TRANSCRIPT_CHARS = 45_000
 MAX_CHAT_CONTEXT_CHARS = 32_000
+MAX_SUMMARY_PROMPT_CHARS = 15_000
 
 
 class NoTranscriptError(RuntimeError):
@@ -206,10 +209,12 @@ def language_family(language: str | None) -> str | None:
 
 
 def preferred_subtitle_languages_for_info(info: dict[str, Any]) -> tuple[str, ...]:
+    requested_subtitles = info.get("requested_subtitles")
+    requested_language = requested_subtitles.get("language") if isinstance(requested_subtitles, dict) else None
     family = language_family(
         info.get("language")
         or info.get("original_language")
-        or info.get("requested_subtitles", {}).get("language")
+        or requested_language
     )
     english = ("en", "en-US", "en-GB")
     chinese = ("zh-Hans", "zh-CN", "zh", "zh-Hant", "zh-TW", "cmn-Hans", "cmn")
@@ -322,7 +327,7 @@ def extract_platform_transcript(
     cookies: str | None = None,
     browser_cookies: str | None = None,
 ) -> tuple[dict[str, Any], Path, list[TranscriptSegment], str | None]:
-    output_template = str(task_dir / "%(title).160B [%(id)s].%(ext)s")
+    output_template = str(task_dir / "subtitle.%(ext)s")
     options, cookie_file = build_platform_subtitle_options(url, task_dir, output_template, cookies, browser_cookies)
 
     try:
@@ -519,25 +524,48 @@ def normalize_summary_payload(parsed: dict[str, Any], title: str | None, transcr
     return parsed
 
 
-def request_deepseek_chat(messages: list[dict[str, str]], max_tokens: int, response_format: dict[str, str] | None = None) -> str:
+def request_deepseek_chat(
+    messages: list[dict[str, str]],
+    max_tokens: int,
+    response_format: dict[str, str] | None = None,
+    temperature: float = 0.2,
+) -> str:
     payload: dict[str, Any] = {
         "model": DEEPSEEK_MODEL,
         "messages": messages,
-        "temperature": 0.2,
+        "temperature": temperature,
         "max_tokens": max_tokens,
     }
     if response_format:
         payload["response_format"] = response_format
 
-    response = requests.post(
-        f"{DEEPSEEK_BASE_URL}/chat/completions",
-        headers={
-            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=DEEPSEEK_TIMEOUT_SECONDS,
-    )
+    result_queue: queue.Queue[requests.Response | Exception] = queue.Queue(maxsize=1)
+
+    def send_request() -> None:
+        try:
+            result_queue.put(
+                requests.post(
+                    f"{DEEPSEEK_BASE_URL}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=(15, DEEPSEEK_TIMEOUT_SECONDS),
+                )
+            )
+        except Exception as exc:
+            result_queue.put(exc)
+
+    worker = threading.Thread(target=send_request, daemon=True)
+    worker.start()
+    try:
+        result = result_queue.get(timeout=DEEPSEEK_TIMEOUT_SECONDS + 5)
+    except queue.Empty as exc:
+        raise TimeoutError(f"Deepseek 请求超时（超过 {DEEPSEEK_TIMEOUT_SECONDS} 秒）") from exc
+    if isinstance(result, Exception):
+        raise result
+    response = result
     if response.status_code >= 400:
         detail = response.text[:500]
         raise RuntimeError(f"Deepseek 请求失败：HTTP {response.status_code} {detail}")
@@ -609,6 +637,125 @@ def fallback_summary_from_transcript(title: str | None, transcript_text: str, tr
     )
 
 
+def strip_topic_noise(value: str | None) -> str:
+    text = clean_subtitle_text(value or "")
+    text = re.sub(r"#\S+", "", text)
+    text = re.sub(r"\[[^\]]+\]", "", text)
+    text = re.sub(r"\s+", " ", text).strip(" -_｜|,，。.!！?？:：")
+    return text
+
+
+def concise_topic(value: str | None, transcript_language: str | None = None, fallback: str | None = None) -> str:
+    family = language_family(transcript_language)
+    text = strip_topic_noise(value) or strip_topic_noise(fallback)
+    if not text:
+        return "视频总结" if family == "zh" else "Video Summary"
+    if family == "zh":
+        compact = re.sub(r"\s+", "", text)
+        if "AI编程工具" in compact and ("锐评" in compact or "评" in compact):
+            return "AI编程工具锐评"
+        if "AI编程工具" in compact:
+            return "AI编程工具评测"
+        return text[:18]
+    if len(text) > 64:
+        text = re.split(r"[:：|｜\-–—]", text, maxsplit=1)[0].strip() or text
+    return text[:64]
+
+
+def concise_node_text(value: str | None, transcript_language: str | None = None, max_chars: int = 42) -> str:
+    family = language_family(transcript_language)
+    text = strip_topic_noise(value)
+    if not text:
+        return ""
+    if family == "zh":
+        return text[:max_chars]
+    words = text.split()
+    return " ".join(words[:10])[:max_chars]
+
+
+def collect_mindmap_points_from_summary(summary: AiSummaryResult | None, transcript_text: str, transcript_language: str | None) -> list[str]:
+    points: list[str] = []
+    generic_texts = {
+        concise_node_text(localized_fallback_text(transcript_language, key), transcript_language, 56)
+        for key in ("learning_suggestion", "audience", "timeline_title", "generated_summary")
+    }
+
+    def add(value: str | None) -> None:
+        text = concise_node_text(value, transcript_language, 56)
+        if text and text not in generic_texts and text not in points:
+            points.append(text)
+
+    if summary:
+        for item in summary.outline:
+            title, body = (item.split(":", 1) + [""])[:2] if ":" in item else (item.split("：", 1) + [""])[:2] if "：" in item else (item, "")
+            add(title)
+            for detail in re.split(r"[;；。]\s*|[.!?]\s+", body):
+                add(detail)
+        for item in summary.key_points:
+            add(item)
+        for item in summary.timeline:
+            add(item.title)
+            add(item.summary)
+        for item in summary.learning_suggestions:
+            add(item)
+
+    for raw_line in transcript_text.splitlines():
+        add(re.sub(r"^\[[^\]]+\]\s*", "", raw_line))
+        if len(points) >= 18:
+            break
+    return points
+
+
+def fallback_mindmap_from_summary(
+    summary: AiSummaryResult | None,
+    title: str | None,
+    transcript_text: str,
+    transcript_language: str | None = None,
+) -> str:
+    root = concise_topic(summary.title if summary else title, transcript_language, title)
+    points = collect_mindmap_points_from_summary(summary, transcript_text, transcript_language)
+    if not points:
+        points = [root]
+    supplemental = (
+        ["工具范围与分类", "选择工具的判断标准", "实际使用体验", "适用场景与风险", "推荐与避坑建议", "评价限制"]
+        if language_family(transcript_language) == "zh" and "AI编程工具" in root
+        else ["主题背景", "核心观点", "关键结论", "实践建议", "注意事项", "延伸思考"]
+        if language_family(transcript_language) == "zh"
+        else ["Background", "Core Ideas", "Key Findings", "Practical Advice", "Caveats", "Next Steps"]
+    )
+    while len(points) < 12:
+        candidate = supplemental[(len(points) - 1) % len(supplemental)]
+        if candidate not in points:
+            points.append(candidate)
+        else:
+            points.append(f"{candidate}{len(points)}")
+
+    lines = [f"# {root}"]
+    chunk_size = max(3, min(4, len(points) // 4 or 3))
+    used_branches: set[str] = set()
+    for index in range(4):
+        chunk = points[index * chunk_size : (index + 1) * chunk_size] or points[:chunk_size]
+        branch_title = next(
+            (
+                candidate
+                for item in chunk
+                if (candidate := concise_node_text(item, transcript_language, 22))
+                and candidate != root
+                and candidate not in used_branches
+            ),
+            concise_node_text(chunk[0], transcript_language, 22) or root,
+        )
+        used_branches.add(branch_title)
+        lines.append(f"## {branch_title}")
+        for child in chunk[1:4] or chunk[:3]:
+            child_title = concise_node_text(child, transcript_language, 34)
+            if child_title:
+                lines.append(f"### {child_title}")
+                if child != child_title:
+                    lines.append(f"#### {concise_node_text(child, transcript_language, 56)}")
+    return "\n".join(lines)
+
+
 def call_deepseek_summary(
     title: str | None,
     webpage_url: str | None,
@@ -619,6 +766,8 @@ def call_deepseek_summary(
     if not DEEPSEEK_API_KEY:
         raise RuntimeError("Deepseek API Key 未配置。请在 .env 中设置 DEEPSEEK_API_KEY 后重启后端。")
 
+    prompt_transcript_text = transcript_text[:MAX_SUMMARY_PROMPT_CHARS]
+    prompt_truncated = truncated or len(transcript_text) > MAX_SUMMARY_PROMPT_CHARS
     target_language, language_rule = get_summary_language_instruction(transcript_language)
     system_prompt = (
         "You are a professional video content analysis assistant. Generate an analytical summary from the transcript, not an exhaustive knowledge tree. "
@@ -636,7 +785,7 @@ def call_deepseek_summary(
 视频链接：{webpage_url or ""}
 字幕语言：{transcript_language or "unknown"}
 输出语言要求：{language_rule}
-字幕是否被截断：{"是" if truncated else "否"}
+字幕是否被截断：{"是" if prompt_truncated else "否"}
 
 请返回如下 JSON 对象，字段名必须完全一致：
 {{
@@ -653,16 +802,20 @@ def call_deepseek_summary(
 }}
 
 字幕内容：
-{transcript_text}
+{prompt_transcript_text}
 """.strip()
-    content = request_deepseek_chat(
-        [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        max_tokens=DEEPSEEK_MAX_TOKENS,
-        response_format={"type": "json_object"},
-    )
+    try:
+        content = request_deepseek_chat(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=DEEPSEEK_MAX_TOKENS,
+            response_format={"type": "json_object"},
+        )
+    except Exception as exc:
+        logger.warning("Deepseek summary generation failed, using transcript fallback: %s", exc)
+        return fallback_summary_from_transcript(title, transcript_text, transcript_language)
     try:
         parsed = extract_json_object(content)
     except json.JSONDecodeError:
@@ -679,60 +832,160 @@ def call_deepseek_summary(
 
 def build_mindmap_markdown_prompt(transcript_text: str, transcript_language: str | None = None) -> str:
     truncated = transcript_text[:15_000]
-    _, language_rule = get_summary_language_instruction(transcript_language)
-    return f"""Please organize the following video transcript into a mind map structure.
+    family = language_family(transcript_language)
+    lang_hint = "中文" if family == "zh" else "English" if family == "en" else "与原文相同的语言"
+    language_rule = (
+        "所有节点必须使用中文。"
+        if family == "zh"
+        else "All nodes must be written in English. Do not output Chinese."
+        if family == "en"
+        else "所有节点必须使用与原文相同的语言。"
+    )
+    return f"""请将以下视频字幕内容整理为思维导图结构，使用{lang_hint}输出。
 
-Language rule: {language_rule}
-
-Requirements:
-1. Use Markdown heading hierarchy only.
-2. The root node must use one `#` heading and represent the video topic.
-3. Main branches must use `##` headings and represent major chapters/modules.
-4. Key points must use `###` headings.
-5. Use `####` headings when a key point needs a more specific detail.
-6. Node text must be concise and suitable for a mind map.
-7. Do not output paragraphs, bullet lists, code fences, Markdown explanations, or any text outside the heading hierarchy.
+要求：
+1. 使用 Markdown 标题层级格式（# 一级标题，## 二级标题，### 三级标题）
+2. 最外层是视频主题
+3. 第二层是 5-8 个主要章节/模块，不能只列章节名
+4. 每个二级章节下面必须展开 2-4 个三级要点
+5. 重要三级要点下面继续用 1-3 个四级节点补充细节、例子或结论
+6. 严禁输出扁平结构；不能只有一堆 ## 标题
+7. 每个节点的文字要简洁精炼，但必须表达具体信息
+8. 只输出 Markdown 内容，不要其他说明文字
+9. {language_rule}
 
 ---
-Transcript:
+视频字幕内容：
 {truncated}"""
 
 
-def normalize_mindmap_markdown(markdown: str, fallback_title: str | None, transcript_language: str | None) -> str:
+def fallback_mindmap_from_transcript(title: str | None, transcript_text: str, transcript_language: str | None = None) -> str:
+    return fallback_mindmap_from_summary(None, title, transcript_text, transcript_language)
+
+
+def validate_mindmap_structure(lines: list[str]) -> None:
+    h2_count = 0
+    h3_count = 0
+    h2_with_children = 0
+    current_h2_has_child = False
+
+    for line in lines:
+        if line.startswith("## ") and not line.startswith("### "):
+            if h2_count and current_h2_has_child:
+                h2_with_children += 1
+            h2_count += 1
+            current_h2_has_child = False
+            continue
+        if line.startswith("### ") and not line.startswith("#### "):
+            h3_count += 1
+            if h2_count:
+                current_h2_has_child = True
+
+    if h2_count and current_h2_has_child:
+        h2_with_children += 1
+
+    if h2_count < 4 or h3_count < 8 or h2_with_children < max(3, h2_count - 1):
+        raise RuntimeError(
+            f"思维导图层级过浅：二级节点 {h2_count} 个，三级节点 {h3_count} 个，展开的二级节点 {h2_with_children} 个。"
+        )
+    generic_nodes = {
+        "核心内容",
+        "关键细节",
+        "主要片段",
+        "复习重点",
+        "Core Content",
+        "Key Details",
+        "Main Segments",
+        "Review Focus",
+    }
+    for line in lines:
+        text = re.sub(r"^#{1,4}\s+", "", line).strip()
+        if text in generic_nodes or re.match(r"^(要点|Point)\s*\d+$", text, flags=re.IGNORECASE):
+            raise RuntimeError(f"思维导图包含模板节点：{text}")
+
+
+def validate_mindmap_language(lines: list[str], transcript_language: str | None = None) -> None:
+    family = language_family(transcript_language)
+    if family != "en":
+        return
+    text = "\n".join(lines)
+    if re.search(r"[\u3400-\u9fff]", text):
+        raise RuntimeError("英文视频的思维导图节点包含中文。")
+
+
+def clean_mindmap_markdown(markdown: str, fallback_title: str | None = None, transcript_language: str | None = None) -> str:
+    cleaned = str(markdown or "").strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:markdown|md)?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
     lines = []
-    for raw_line in str(markdown or "").splitlines():
+    for raw_line in cleaned.splitlines():
         line = raw_line.strip()
-        if not line or line.startswith("```"):
+        if not line:
             continue
         if re.match(r"^#{1,4}\s+\S", line):
             lines.append(line)
-    if lines:
-        if not lines[0].startswith("# "):
-            root = fallback_title or localized_fallback_text(transcript_language, "timeline_title")
-            lines.insert(0, f"# {root}")
-        return "\n".join(lines)
-    root = fallback_title or localized_fallback_text(transcript_language, "timeline_title")
-    return f"# {root}"
+    if not lines:
+        raise RuntimeError("Deepseek 未返回有效的思维导图 Markdown。")
+    clean_root = concise_topic(lines[0].replace("#", "", 1).strip() if lines and lines[0].startswith("# ") else fallback_title, transcript_language, fallback_title)
+    if lines[0].startswith("# "):
+        lines[0] = f"# {clean_root}"
+    else:
+        lines.insert(0, f"# {clean_root}")
+    validate_mindmap_structure(lines)
+    validate_mindmap_language(lines, transcript_language)
+    return "\n".join(lines)
 
 
 def call_deepseek_mindmap_markdown(
     title: str | None,
     transcript_text: str,
     transcript_language: str | None = None,
+    summary: AiSummaryResult | None = None,
 ) -> str:
     if not DEEPSEEK_API_KEY:
         raise RuntimeError("Deepseek API Key 未配置。请在 .env 中设置 DEEPSEEK_API_KEY 后重启后端。")
-    content = request_deepseek_chat(
-        [
-            {
-                "role": "system",
-                "content": "You are a professional mind map generator. Convert transcript content into a clear Markdown heading hierarchy only.",
-            },
-            {"role": "user", "content": build_mindmap_markdown_prompt(transcript_text, transcript_language)},
-        ],
-        max_tokens=min(DEEPSEEK_MAX_TOKENS, 4096),
-    )
-    return normalize_mindmap_markdown(content, title, transcript_language)
+    try:
+        content = request_deepseek_chat(
+            [
+                {
+                    "role": "system",
+                    "content": "你是一个专业的思维导图生成助手，擅长将内容组织为清晰的层级结构。",
+                },
+                {"role": "user", "content": build_mindmap_markdown_prompt(transcript_text, transcript_language)},
+            ],
+            max_tokens=min(DEEPSEEK_MAX_TOKENS, 4096),
+            temperature=0.5,
+        )
+        return clean_mindmap_markdown(content, title, transcript_language)
+    except Exception as first_exc:
+        logger.warning("Mind map markdown cleanup failed, retrying once: %s", first_exc)
+    try:
+        retry_content = request_deepseek_chat(
+            [
+                {
+                    "role": "system",
+                    "content": "你是一个专业的思维导图生成助手，只能输出 Markdown 标题层级。",
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"{build_mindmap_markdown_prompt(transcript_text, transcript_language)}\n\n"
+                        "注意：上一次结果不合格。必须生成完整树形结构："
+                        "1 个 # 根节点；5-8 个 ## 主分支；每个 ## 下至少 2 个 ###；"
+                        "关键 ### 下继续补充 #### 细节。"
+                        "如果原字幕是英文，全部节点必须使用英文，不能出现中文。"
+                        "不要输出代码块、说明文字、项目符号或普通段落。"
+                    ),
+                },
+            ],
+            max_tokens=min(DEEPSEEK_MAX_TOKENS, 4096),
+            temperature=0.5,
+        )
+        return clean_mindmap_markdown(retry_content, title, transcript_language)
+    except Exception as retry_exc:
+        logger.warning("Mind map generation retry failed, using summary fallback: %s", retry_exc)
+        return fallback_mindmap_from_summary(summary, title, transcript_text, transcript_language)
 
 
 def call_deepseek_video_chat(
@@ -905,7 +1158,7 @@ def _try_asr_fallback(
             transcript_language=asr_result.language,
         )
         try:
-            summary.mindmap_markdown = call_deepseek_mindmap_markdown(url, transcript_text, asr_result.language)
+            summary.mindmap_markdown = call_deepseek_mindmap_markdown(url, transcript_text, asr_result.language, summary)
         except Exception as exc:
             logger.warning("Mind map generation failed for ASR task %s: %s", task_id, exc)
 
@@ -978,7 +1231,7 @@ def generate_ai_summary_task(
             transcript_language=language,
         )
         try:
-            summary.mindmap_markdown = call_deepseek_mindmap_markdown(info.get("title"), transcript_text, language)
+            summary.mindmap_markdown = call_deepseek_mindmap_markdown(info.get("title"), transcript_text, language, summary)
         except Exception as exc:
             logger.warning("Mind map generation failed for task %s: %s", task_id, exc)
         write_summary_artifacts(task_dir, segments, summary, subtitle_file)
@@ -1042,7 +1295,7 @@ def generate_ai_summary_from_subtitle_task(
         )
         subtitle_language = infer_subtitle_language(subtitle_path)
         try:
-            summary.mindmap_markdown = call_deepseek_mindmap_markdown(title, transcript_text, subtitle_language)
+            summary.mindmap_markdown = call_deepseek_mindmap_markdown(title, transcript_text, subtitle_language, summary)
         except Exception as exc:
             logger.warning("Mind map generation failed for subtitle task %s: %s", task_id, exc)
         write_summary_artifacts(task_dir, segments, summary, subtitle_path)

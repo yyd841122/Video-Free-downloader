@@ -436,7 +436,17 @@ def build_proxy_url(url: str | None, info: dict[str, Any]) -> str | None:
 
 def normalize_formats(info: dict[str, Any]) -> list[FormatInfo]:
     formats: list[FormatInfo] = []
-    for item in info.get("formats") or []:
+    raw_formats = sorted(
+        info.get("formats") or [],
+        key=lambda item: (
+            int(item.get("height") or 0),
+            1 if item.get("vcodec") and item.get("vcodec") != "none" else 0,
+            1 if (item.get("ext") or "").lower() == "mp4" else 0,
+            int(item.get("filesize") or item.get("filesize_approx") or 0),
+        ),
+        reverse=True,
+    )
+    for item in raw_formats:
         format_id = str(item.get("format_id") or "")
         if not format_id:
             continue
@@ -485,7 +495,7 @@ def normalize_formats(info: dict[str, Any]) -> list[FormatInfo]:
                 note=info.get("format_note") or "original",
             )
         )
-    return formats[:80]
+    return formats[:120]
 
 
 def get_max_video_height(info: dict[str, Any]) -> int:

@@ -46,6 +46,14 @@ class AiSummaryTaskStore:
         with self._lock:
             return self._tasks.get(task_id)
 
+    def active_count(self) -> int:
+        with self._lock:
+            return sum(
+                1
+                for task in self._tasks.values()
+                if task.status in {"queued", "extracting", "summarizing"}
+            )
+
     def update(self, task_id: str, **kwargs: object) -> None:
         with self._lock:
             task = self._tasks.get(task_id)
