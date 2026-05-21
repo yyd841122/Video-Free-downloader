@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /downloads/
 
-Sitemap: https://saveany.example.com/sitemap.xml
+Sitemap: https://videodown.cozyguidehub.com/sitemap.xml

@@ -23,5 +23,5 @@ SaveAny helps users parse public video URLs, choose available media formats, dow
 
 ## Key Pages
 
-- Home: https://saveany.example.com/
-- Sitemap: https://saveany.example.com/sitemap.xml
+- Home: https://videodown.cozyguidehub.com/
+- Sitemap: https://videodown.cozyguidehub.com/sitemap.xml

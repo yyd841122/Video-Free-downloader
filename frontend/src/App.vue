@@ -1088,7 +1088,7 @@ const startBiliLogin = async () => {
               >
                 <article class="ai-doc-panel">
                   <header class="ai-doc-toolbar">
-                    <h1 class="sr-only">{{ summaryTitle }}</h1>
+                    <h2 class="sr-only">{{ summaryTitle }}</h2>
                     <div class="ai-doc-actions" aria-label="总结导出操作">
                       <button class="text-action-button" type="button" @click="copySummaryMarkdown">{{ aiContentLabels.copyMarkdown }}</button>
                       <button class="text-action-button" type="button" @click="downloadSummaryMarkdown">{{ aiContentLabels.downloadMarkdown }}</button>
