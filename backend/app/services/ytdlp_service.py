@@ -579,6 +579,34 @@ def normalize_user_warning(message: str, extractor: str, has_formats: bool) -> s
     if "if you encounter errors" in lower and "install" in lower and has_formats:
         return None
 
+    # 当已经拿到可下载格式时，yt-dlp 在切换 player_client / 重试过程中产生的中间报错
+    # 对终端用户没有意义（HTTP 429/403/404、Unable to download webpage、Sign in to confirm…），
+    # 全部静默丢弃，避免给用户造成"解析失败"的错觉。
+    if has_formats:
+        noise_patterns = (
+            "http error 429",
+            "too many requests",
+            "http error 403",
+            "http error 404",
+            "unable to download webpage",
+            "unable to download api",
+            "unable to download player",
+            "unable to extract",
+            "sign in to confirm",
+            "login required",
+            "cookies are no longer valid",
+            "the following content is not available",
+            "this video is not available",
+            "failed to decrypt",
+            "nsig extraction failed",
+            "some formats may be missing",
+            "only images are available for download",
+            "requested format is not available",
+            "got error",
+        )
+        if any(p in lower for p in noise_patterns):
+            return None
+
     return text
 
 
@@ -795,12 +823,14 @@ def download_video_task(
             progress = 0.0
             if total:
                 progress = min(99.0, max(0.0, downloaded * 100 / total))
+            eta_raw = data.get("eta")
+            eta_seconds = int(round(eta_raw)) if eta_raw is not None else None
             task_store.update(
                 task_id,
                 status="downloading",
                 progress=round(progress, 1),
                 speed=human_speed(data.get("speed")),
-                eta=data.get("eta"),
+                eta=eta_seconds,
                 filename=Path(data.get("filename", "")).name or None,
             )
         elif status == "finished":

@@ -229,6 +229,26 @@ class TaskHistoryListResponse(BaseModel):
     items: list[TaskHistoryItem] = Field(default_factory=list)
 
 
+class BatchDownloadRequest(BaseModel):
+    urls: list[HttpUrl] = Field(min_length=1, max_length=20)
+    format: str = Field(default="best", max_length=256)
+    with_subtitle: bool = False
+    cookies: str | None = Field(default=None, max_length=1_000_000)
+    browser_cookies: str | None = Field(default=None, max_length=64)
+    auth_session_id: str | None = Field(default=None, max_length=128)
+
+
+class BatchDownloadTaskItem(BaseModel):
+    url: str
+    task_id: str | None = None
+    status: str = "queued"
+    error: str | None = None
+
+
+class BatchDownloadResponse(BaseModel):
+    tasks: list[BatchDownloadTaskItem] = Field(default_factory=list)
+
+
 class QuotaPublic(BaseModel):
     is_vip: bool = False
     ai_used_today: int = 0
@@ -290,3 +310,4 @@ class OrderListResponse(BaseModel):
 
 class MockPayRequest(BaseModel):
     outcome: Literal["success", "fail", "cancel"] = "success"
+
