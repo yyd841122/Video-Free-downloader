@@ -87,8 +87,28 @@ def apply_url_headers(options: dict[str, Any], url: str) -> None:
     headers = dict(options.get("http_headers") or {})
     hostname = urlparse(url).hostname or ""
     if "bilibili.com" in hostname:
-        headers.setdefault("Referer", url)
+        # Bilibili 的 WAF 会对数据中心 IP 抛 412 风控挑战（yt-dlp issue #14830）。
+        # 把全局 http_headers 调成"从首页点进视频页"的真实浏览器形态，
+        # 至少消除「自指 Referer / 缺常见浏览器头」这类额外嫌疑点。
+        # 注意：yt-dlp 的 Bilibili extractor 在调用 playurl/playinfo 等 API 时
+        # 会传 per-request headers 覆盖 Referer 为视频页 URL，这里只影响初次 GET HTML。
+        headers["User-Agent"] = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        )
+        headers.setdefault("Referer", "https://www.bilibili.com/")
         headers.setdefault("Origin", "https://www.bilibili.com")
+        headers.setdefault(
+            "Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,"
+            "image/avif,image/webp,image/apng,*/*;q=0.8",
+        )
+        headers.setdefault("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+        headers.setdefault("Sec-Fetch-Dest", "document")
+        headers.setdefault("Sec-Fetch-Mode", "navigate")
+        headers.setdefault("Sec-Fetch-Site", "same-origin")
+        headers.setdefault("Sec-Fetch-User", "?1")
+        headers.setdefault("Upgrade-Insecure-Requests", "1")
     options["http_headers"] = headers
 
 

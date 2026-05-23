@@ -19,6 +19,32 @@ router = APIRouter(prefix="/video")
 info_semaphore = BoundedSemaphore(MAX_CONCURRENT_INFO_TASKS)
 
 
+def _humanize_extract_error(exc: Exception) -> str:
+    """把 yt-dlp 抛出来的"对普通用户不友好"的英文报错转成可操作的中文提示。
+
+    目前只处理 Bilibili 412 风控（yt-dlp issue #14830 的已知 open 问题），
+    其他错误透传 raw 字符串，留给上层或后续 PR 继续覆盖。"""
+
+    raw = str(exc).strip()
+    lower = raw.lower()
+    if "412" in raw or "precondition failed" in lower:
+        # Bilibili WAF 对数据中心 IP 直接抛 412 挑战，目前 yt-dlp 无代码层根治办法。
+        # 唯一可靠出路是带登录态请求；后端已支持 cookies 字段 + /auth/bilibili/qrcode 扫码。
+        if "bilibili" in lower:
+            return (
+                "B 站暂时拒绝了服务器的解析请求（HTTP 412 风控挑战）。\n"
+                "这是 Bilibili 对机房 IP 的反爬限制，yt-dlp 社区已知问题（#14830）。你可以：\n"
+                "1）点击右上角「Bilibili 扫码登录」，扫码后再解析（最稳定，可拿 1080P）；\n"
+                "2）或在「高级选项」处粘贴浏览器导出的 Bilibili Cookies（包含 SESSDATA）；\n"
+                "3）或稍后重试 / 换一条公开视频链接。"
+            )
+        return (
+            "目标站点暂时拒绝了请求（HTTP 412 Precondition Failed）。"
+            "可尝试稍后重试，或在「高级选项」处粘贴登录 Cookies 后再试。"
+        )
+    return raw
+
+
 @router.post("/info", response_model=VideoInfoResponse)
 def video_info(payload: VideoInfoRequest) -> VideoInfoResponse:
     if not info_semaphore.acquire(blocking=False):
@@ -27,7 +53,7 @@ def video_info(payload: VideoInfoRequest) -> VideoInfoResponse:
         cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
         return extract_info(str(payload.url), cookies, payload.browser_cookies)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=_humanize_extract_error(exc)) from exc
     finally:
         info_semaphore.release()
 
@@ -61,7 +87,7 @@ def create_direct_link(payload: VideoDirectRequest, request: Request) -> DirectL
             payload.browser_cookies,
         )
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=_humanize_extract_error(exc)) from exc
 
     base_url = str(request.base_url).rstrip("/")
     return DirectLinkResponse(
