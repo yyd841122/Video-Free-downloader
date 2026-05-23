@@ -49,6 +49,12 @@ const routes = [
     component: () => import('../views/LegalView.vue'),
     meta: { titleKey: 'meta.copyright', legalKey: 'copyright' },
   },
+  {
+    path: '/help/youtube-cookies',
+    name: 'help-youtube-cookies',
+    component: () => import('../views/YouTubeCookiesGuideView.vue'),
+    meta: { titleKey: 'meta.youtubeCookiesHelp' },
+  },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 

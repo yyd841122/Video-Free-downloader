@@ -774,6 +774,13 @@ fieldset legend,
   border-color: #ff8a65;
 }
 
+.youtube-auth-simple,
+.youtube-auth-advanced {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+}
+
 .youtube-auth-actions {
   display: flex;
   flex-wrap: wrap;
@@ -799,6 +806,13 @@ fieldset legend,
   background: #ffffff;
   color: #c2410c;
   cursor: pointer;
+}
+
+.youtube-auth-button.link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .youtube-auth-button.primary {

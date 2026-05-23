@@ -41,6 +41,7 @@ const youtubeAuthPanelEl = ref(null)
 const youtubeCookiesDraft = ref('')
 const youtubeCookieFileInput = ref(null)
 const youtubeAuthMessage = ref('')
+const youtubeCookieAdvancedOpen = ref(false)
 // 用户提交 YouTube Cookie 后自动续解析（对齐 B 站 pendingParseAfterLogin）。
 const pendingParseAfterYouTubeAuth = ref(false)
 // 标记"扫码登录成功后要继续解析视频"。
@@ -610,6 +611,7 @@ const clearUrl = () => {
   pendingParseAfterLogin.value = false
   showYouTubeAuthPanel.value = false
   pendingParseAfterYouTubeAuth.value = false
+  youtubeCookieAdvancedOpen.value = false
   youtubeCookiesDraft.value = ''
   youtubeAuthMessage.value = ''
   cookiesText.value = ''
@@ -682,7 +684,20 @@ const focusYouTubeAuthPanel = () => {
 const dismissYouTubeAuthPanel = () => {
   showYouTubeAuthPanel.value = false
   pendingParseAfterYouTubeAuth.value = false
+  youtubeCookieAdvancedOpen.value = false
   youtubeAuthMessage.value = ''
+}
+
+const openYouTubeCookieAdvanced = () => {
+  youtubeCookieAdvancedOpen.value = true
+  nextTick(() => {
+    try {
+      const input = youtubeAuthPanelEl.value?.querySelector('.youtube-cookie-input')
+      input?.focus()
+    } catch {
+      /* ignore */
+    }
+  })
 }
 
 const triggerYouTubeCookieUpload = () => {
@@ -768,6 +783,7 @@ const parseInfo = async () => {
     if (isYouTube) {
       showYouTubeAuthPanel.value = false
       pendingParseAfterYouTubeAuth.value = false
+      youtubeCookieAdvancedOpen.value = false
     }
   } catch (err) {
     // 兜底：扫过码但 session 过期 / 后端被 WAF 撞 412 / 其他登录态失效场景。
@@ -785,6 +801,7 @@ const parseInfo = async () => {
     if (isYouTube && looksLikeYouTubeAuthError(err?.message)) {
       showYouTubeAuthPanel.value = true
       pendingParseAfterYouTubeAuth.value = true
+      youtubeCookieAdvancedOpen.value = false
       error.value = ''
       if (!youtubeCookiesDraft.value.trim() && cookiesText.value.trim()) {
         youtubeCookiesDraft.value = cookiesText.value.trim()
@@ -1287,39 +1304,64 @@ const startBiliLogin = async () => {
           <h3>{{ t('home.youtubeAuthTitle') }}</h3>
           <p>{{ t('home.youtubeAuthSubtitle') }}</p>
         </div>
-        <p class="youtube-auth-hint">{{ t('home.youtubeAuthHint') }}</p>
-        <textarea
-          v-model="youtubeCookiesDraft"
-          class="youtube-cookie-input"
-          rows="5"
-          :placeholder="t('home.youtubeCookiePlaceholder')"
-          spellcheck="false"
-          autocomplete="off"
-        ></textarea>
-        <input
-          ref="youtubeCookieFileInput"
-          class="youtube-auth-file"
-          type="file"
-          accept=".txt,text/plain"
-          @change="onYouTubeCookieFileChange"
-        />
-        <div class="youtube-auth-actions">
-          <button class="youtube-auth-button" type="button" @click="triggerYouTubeCookieUpload">
-            {{ t('home.youtubeCookieUpload') }}
-          </button>
-          <button
-            class="youtube-auth-button primary"
-            type="button"
-            :disabled="loading"
-            @click="submitYouTubeCookiesAndParse"
-          >
-            {{ loading ? '…' : t('home.youtubeCookieContinue') }}
-          </button>
-          <button class="youtube-auth-button muted" type="button" :disabled="loading" @click="dismissYouTubeAuthPanel">
-            {{ t('home.youtubeCookieCancel') }}
-          </button>
+
+        <div v-if="!youtubeCookieAdvancedOpen" class="youtube-auth-simple">
+          <div class="youtube-auth-actions">
+            <RouterLink
+              class="youtube-auth-button link"
+              :to="{ name: 'help-youtube-cookies' }"
+            >
+              {{ t('home.youtubeAuthViewGuide') }}
+            </RouterLink>
+            <button class="youtube-auth-button" type="button" @click="openYouTubeCookieAdvanced">
+              {{ t('home.youtubeAuthHaveCookies') }}
+            </button>
+            <button class="youtube-auth-button muted" type="button" @click="dismissYouTubeAuthPanel">
+              {{ t('home.youtubeAuthTryLater') }}
+            </button>
+          </div>
         </div>
-        <p v-if="youtubeAuthMessage" class="youtube-auth-message">{{ youtubeAuthMessage }}</p>
+
+        <div v-else class="youtube-auth-advanced">
+          <p class="youtube-auth-hint">{{ t('home.youtubeAuthAdvancedHint') }}</p>
+          <textarea
+            v-model="youtubeCookiesDraft"
+            class="youtube-cookie-input"
+            rows="5"
+            :placeholder="t('home.youtubeCookiePlaceholder')"
+            spellcheck="false"
+            autocomplete="off"
+          ></textarea>
+          <input
+            ref="youtubeCookieFileInput"
+            class="youtube-auth-file"
+            type="file"
+            accept=".txt,text/plain"
+            @change="onYouTubeCookieFileChange"
+          />
+          <div class="youtube-auth-actions">
+            <button class="youtube-auth-button" type="button" @click="triggerYouTubeCookieUpload">
+              {{ t('home.youtubeCookieUpload') }}
+            </button>
+            <button
+              class="youtube-auth-button primary"
+              type="button"
+              :disabled="loading"
+              @click="submitYouTubeCookiesAndParse"
+            >
+              {{ loading ? '…' : t('home.youtubeCookieContinue') }}
+            </button>
+            <button
+              class="youtube-auth-button muted"
+              type="button"
+              :disabled="loading"
+              @click="dismissYouTubeAuthPanel"
+            >
+              {{ t('home.youtubeCookieCancel') }}
+            </button>
+          </div>
+          <p v-if="youtubeAuthMessage" class="youtube-auth-message">{{ youtubeAuthMessage }}</p>
+        </div>
       </div>
     </section>
   </section>
