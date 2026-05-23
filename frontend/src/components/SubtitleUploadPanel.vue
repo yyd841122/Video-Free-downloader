@@ -1,6 +1,9 @@
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { createAiSummaryFromSubtitle } from '../api/client'
+
+const { t } = useI18n()
 
 const props = defineProps({
   title: {
@@ -48,18 +51,18 @@ const uploadSubtitle = async () => {
 </script>
 
 <template>
-  <section class="subtitle-upload" aria-label="上传字幕生成总结">
+  <section class="subtitle-upload" :aria-label="t('components.subtitleAria')">
     <div>
-      <h4>上传字幕继续总结</h4>
-      <p>如果平台没有开放字幕，可以上传 SRT/VTT 文件继续生成摘要、思维导图和问答。</p>
+      <h4>{{ t('components.subtitleTitle') }}</h4>
+      <p>{{ t('components.subtitleDesc') }}</p>
     </div>
     <div class="subtitle-upload-controls">
       <label class="subtitle-file">
         <input accept=".srt,.vtt,text/vtt" type="file" @change="onFileChange" />
-        <span>{{ selectedFile?.name || '选择 SRT/VTT 字幕' }}</span>
+        <span>{{ selectedFile?.name || t('components.subtitlePick') }}</span>
       </label>
       <button type="button" :disabled="!selectedFile || uploading" @click="uploadSubtitle">
-        {{ uploading ? '上传中' : '上传并总结' }}
+        {{ uploading ? t('components.subtitleUploading') : t('components.subtitleSubmit') }}
       </button>
     </div>
     <p v-if="localError" class="subtitle-upload-error">{{ localError }}</p>

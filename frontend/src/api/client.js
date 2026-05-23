@@ -13,23 +13,82 @@ const resolveApiUrl = (url) => {
   return url.startsWith('/') ? `${API_BASE_URL}${url}` : `${API_BASE_URL}/${url}`
 }
 
+const TOKEN_STORAGE_KEY = 'saveany:auth-token'
+
+export const getAuthToken = () => {
+  try {
+    return window.localStorage.getItem(TOKEN_STORAGE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+export const setAuthToken = (token) => {
+  try {
+    if (token) {
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, token)
+    } else {
+      window.localStorage.removeItem(TOKEN_STORAGE_KEY)
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+const unauthorizedHandlers = new Set()
+
+export const onUnauthorized = (handler) => {
+  unauthorizedHandlers.add(handler)
+  return () => unauthorizedHandlers.delete(handler)
+}
+
+const fireUnauthorized = () => {
+  for (const handler of unauthorizedHandlers) {
+    try {
+      handler()
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 const parseError = async (response) => {
+  if (response.status === 404) {
+    return '接口不存在（Not Found）。请重启后端到最新版本后再试。'
+  }
   try {
     const data = await response.json()
-    return data.detail || data.message || '请求失败，请稍后重试'
+    const detail = data.detail || data.message
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail)) {
+      return detail.map((item) => item.msg || JSON.stringify(item)).join('; ')
+    }
+    return '请求失败，请稍后重试'
   } catch {
     return '请求失败，请稍后重试'
   }
 }
 
+const withAuthHeaders = (extra = {}) => {
+  const token = getAuthToken()
+  if (!token) return extra
+  return { Authorization: `Bearer ${token}`, ...extra }
+}
+
 export const request = async (url, options = {}) => {
   const response = await fetch(resolveApiUrl(url), {
-    headers: {
+    headers: withAuthHeaders({
       'Content-Type': 'application/json',
       ...(options.headers || {}),
-    },
+    }),
     ...options,
   })
+
+  if (response.status === 401) {
+    setAuthToken('')
+    fireUnauthorized()
+    throw new Error(await parseError(response))
+  }
 
   if (!response.ok) {
     throw new Error(await parseError(response))
@@ -41,9 +100,15 @@ export const request = async (url, options = {}) => {
 export const requestForm = async (url, formData) => {
   const response = await fetch(resolveApiUrl(url), {
     method: 'POST',
+    headers: withAuthHeaders(),
     body: formData,
   })
 
+  if (response.status === 401) {
+    setAuthToken('')
+    fireUnauthorized()
+    throw new Error(await parseError(response))
+  }
   if (!response.ok) {
     throw new Error(await parseError(response))
   }
@@ -51,6 +116,7 @@ export const requestForm = async (url, formData) => {
   return response.json()
 }
 
+// ===================== 视频下载 / AI 总结（已有） =====================
 export const getVideoInfo = (url, cookies = '', browserCookies = '', authSessionId = '') =>
   request('/api/video/info', {
     method: 'POST',
@@ -108,3 +174,40 @@ export const createAiSummaryFromSubtitle = ({ file, title = '', url = '' }) => {
   }
   return requestForm('/api/ai/summary/subtitle', formData)
 }
+
+// ===================== 用户与会员 =====================
+export const registerUser = (payload) =>
+  request('/api/users/register', { method: 'POST', body: JSON.stringify(payload) })
+
+export const loginUser = (payload) =>
+  request('/api/users/login', { method: 'POST', body: JSON.stringify(payload) })
+
+export const fetchCurrentUser = () => request('/api/users/me')
+
+export const fetchQuota = () => request('/api/users/me/quota')
+
+export const fetchTaskHistory = () => request('/api/users/me/history')
+
+export const createBatchDownload = (payload) =>
+  request('/api/video/batch', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+
+// ===================== 支付 / 套餐 =====================
+export const fetchPlans = () => request('/api/billing/plans')
+
+export const fetchBillingMode = () => request('/api/billing/mode')
+
+export const createCheckout = (planCode) =>
+  request('/api/billing/checkout', { method: 'POST', body: JSON.stringify({ plan_code: planCode }) })
+
+export const fetchOrders = () => request('/api/billing/orders')
+
+export const fetchOrder = (orderNo) => request(`/api/billing/orders/${orderNo}`)
+
+export const mockPay = (orderNo, outcome) =>
+  request(`/api/billing/mock/pay/${orderNo}`, {
+    method: 'POST',
+    body: JSON.stringify({ outcome }),
+  })

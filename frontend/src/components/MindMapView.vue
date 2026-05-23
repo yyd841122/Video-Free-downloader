@@ -1,5 +1,8 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   summary: {
@@ -31,45 +34,17 @@ const cleanText = (value) =>
     .replace(/\s+/g, ' ')
     .trim()
 
-const containsCjk = (value) => /[\u3400-\u9fff]/u.test(String(value || ''))
-
-const isEnglishSummary = computed(() => {
-  const text = [
-    props.summary.title,
-    props.summary.one_sentence,
-    ...(props.summary.outline || []),
-    ...(props.summary.key_points || []),
-    ...(props.summary.keywords || []),
-    props.summary.audience,
-  ].join(' ')
-  return /[A-Za-z]/.test(text) && !containsCjk(text)
-})
-
-const labels = computed(() =>
-  isEnglishSummary.value
-    ? {
-        title: 'Mind Map',
-        fit: 'Fit',
-        fullscreen: 'Fullscreen',
-        exitFullscreen: 'Exit Fullscreen',
-        download: 'Download',
-        downloadPng: 'HD PNG',
-        downloadSvg: 'SVG',
-        root: 'Video Summary',
-        empty: 'Mind map content was not generated. Please run AI Summary again.',
-      }
-    : {
-        title: '思维导图',
-        fit: '适配',
-        fullscreen: '全屏',
-        exitFullscreen: '退出全屏',
-        download: '下载',
-        downloadPng: '高清 PNG',
-        downloadSvg: 'SVG',
-        root: '视频总结',
-        empty: '思维导图内容未生成，请重新运行 AI 总结。',
-      },
-)
+const labels = computed(() => ({
+  title: t('components.mindmapTitle'),
+  fit: t('components.mindmapFit'),
+  fullscreen: t('components.mindmapFullscreen'),
+  exitFullscreen: t('components.mindmapExitFullscreen'),
+  download: t('components.mindmapDownload'),
+  downloadPng: t('components.mindmapPng'),
+  downloadSvg: t('components.mindmapSvg'),
+  root: t('components.mindmapRoot'),
+  empty: t('components.mindmapEmpty'),
+}))
 
 const getSafeFilename = (name, fallback = 'mind-map') => {
   const cleaned = String(name || fallback)
@@ -94,11 +69,11 @@ const renderMindmap = async () => {
     {
       autoFit: true,
       duration: 360,
-      maxWidth: 360,
-      spacingHorizontal: 92,
-      spacingVertical: 12,
+      maxWidth: 460,
+      spacingHorizontal: 118,
+      spacingVertical: 24,
       colorFreezeLevel: 2,
-      paddingX: 12,
+      paddingX: 16,
     },
     root,
   )
@@ -129,8 +104,10 @@ const downloadBlob = (blob, filename) => {
 
 const getExportFilename = (extension) => `${getSafeFilename(props.summary.title || labels.value.root)}-mindmap.${extension}`
 
-const EXPORT_FONT_SIZE = 16
-const EXPORT_LINE_HEIGHT = 22
+const EXPORT_FONT_SIZE = 15
+const EXPORT_MIN_FONT_SIZE = 12
+const EXPORT_LINE_HEIGHT = 21
+const EXPORT_MIN_LINE_HEIGHT = 17
 const EXPORT_FONT_FAMILY = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif'
 const EXPORT_FONT = `500 ${EXPORT_FONT_SIZE}px ${EXPORT_FONT_FAMILY}`
 
@@ -169,6 +146,29 @@ const wrapExportText = (text, maxWidth) => {
   return lines.length ? lines : [value]
 }
 
+const getFittedExportLines = (text, width, height) => {
+  const maxWidth = Math.max(180, Math.min(520, width - 12))
+  let fontSize = EXPORT_FONT_SIZE
+  let lineHeight = EXPORT_LINE_HEIGHT
+  let lines = wrapExportText(text, maxWidth)
+  const maxLines = Math.max(1, Math.floor(Math.max(height, lineHeight) / lineHeight))
+
+  while (lines.length > maxLines && fontSize > EXPORT_MIN_FONT_SIZE) {
+    fontSize -= 1
+    lineHeight = Math.max(EXPORT_MIN_LINE_HEIGHT, fontSize + 5)
+    lines = wrapExportText(text, maxWidth + (EXPORT_FONT_SIZE - fontSize) * 24)
+  }
+
+  if (lines.length > maxLines) {
+    const fitted = lines.slice(0, maxLines)
+    const lastIndex = fitted.length - 1
+    fitted[lastIndex] = `${fitted[lastIndex].replace(/[。.!！?？,，;；、\s]+$/u, '')}…`
+    lines = fitted
+  }
+
+  return { lines, fontSize, lineHeight }
+}
+
 const buildExportableSvg = () => {
   if (!mindmapSvg.value) return
   const cloned = mindmapSvg.value.cloneNode(true)
@@ -188,13 +188,13 @@ const buildExportableSvg = () => {
     }
     const x = Number.parseFloat(foreignObject.getAttribute('x') || '0') || 0
     const y = Number.parseFloat(foreignObject.getAttribute('y') || '0') || 0
-    const w = Number.parseFloat(foreignObject.getAttribute('width') || '360') || 360
+    const w = Number.parseFloat(foreignObject.getAttribute('width') || '460') || 460
     const h = Number.parseFloat(foreignObject.getAttribute('height') || '20') || 20
-    const lines = wrapExportText(textContent, w - 12)
+    const { lines, fontSize, lineHeight } = getFittedExportLines(textContent, w, h)
     const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text')
     textElement.setAttribute('x', String(x + 4))
-    textElement.setAttribute('y', String(y + Math.max(15, (h - (lines.length - 1) * EXPORT_LINE_HEIGHT) / 2)))
-    textElement.setAttribute('font-size', String(EXPORT_FONT_SIZE))
+    textElement.setAttribute('y', String(y + Math.max(fontSize, (h - (lines.length - 1) * lineHeight) / 2)))
+    textElement.setAttribute('font-size', String(fontSize))
     textElement.setAttribute('font-family', EXPORT_FONT_FAMILY)
     textElement.setAttribute('fill', '#1f2937')
     textElement.setAttribute('font-weight', '500')
@@ -202,7 +202,7 @@ const buildExportableSvg = () => {
     lines.forEach((line, index) => {
       const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan')
       tspan.setAttribute('x', String(x + 4))
-      tspan.setAttribute('dy', index === 0 ? '0' : String(EXPORT_LINE_HEIGHT))
+      tspan.setAttribute('dy', index === 0 ? '0' : String(lineHeight))
       tspan.textContent = line
       textElement.appendChild(tspan)
     })
@@ -410,7 +410,7 @@ const downloadPng = async () => {
     }
     image.onerror = () => {
       URL.revokeObjectURL(url)
-      window.alert('PNG 导出失败，请使用 SVG 下载')
+      window.alert(t('components.mindmapPngFailed'))
       resolve()
     }
     image.src = url
@@ -466,10 +466,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section :class="['mind-map', { 'mind-map-fullscreen': isFullscreen }]" aria-label="视频总结思维导图">
+  <section :class="['mind-map', { 'mind-map-fullscreen': isFullscreen }]" :aria-label="t('components.mindmapAria')">
     <div class="mind-map-heading">
       <h4>{{ labels.title }}</h4>
-      <div class="mind-map-toolbar" aria-label="思维导图视图控制">
+      <div class="mind-map-toolbar" :aria-label="t('components.mindmapToolbarAria')">
         <button type="button" @click="fitMindmap">{{ labels.fit }}</button>
         <button type="button" @click="toggleFullscreen">
           {{ isFullscreen ? labels.exitFullscreen : labels.fullscreen }}

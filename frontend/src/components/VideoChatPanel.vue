@@ -1,6 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { chatWithAiSummary } from '../api/client'
+
+const { t } = useI18n()
 
 const props = defineProps({
   taskId: {
@@ -49,7 +52,7 @@ const sendQuestion = async () => {
 </script>
 
 <template>
-  <section class="video-chat" aria-label="视频内容 AI 问答">
+  <section class="video-chat" :aria-label="t('components.chatAria')">
     <div v-if="messages.length" class="chat-messages" aria-live="polite">
       <article v-for="(message, index) in messages" :key="`${message.role}-${index}-${message.content}`" :class="['chat-message', message.role]">
         <p>{{ message.content }}</p>
@@ -59,19 +62,17 @@ const sendQuestion = async () => {
       </article>
     </div>
 
-    <div v-else class="chat-empty">
-      可以问：“这个视频最重要的三个观点是什么？”或“哪些时间点适合回看？”
-    </div>
+    <div v-else class="chat-empty">{{ t('components.chatEmpty') }}</div>
 
     <form class="chat-form" @submit.prevent="sendQuestion">
-      <label class="sr-only" for="video-chat-question">向视频提问</label>
+      <label class="sr-only" for="video-chat-question">{{ t('components.chatQuestionLabel') }}</label>
       <textarea
         id="video-chat-question"
         v-model="question"
         rows="3"
-        placeholder="输入你想追问的视频内容..."
+        :placeholder="t('components.chatPlaceholder')"
       ></textarea>
-      <button type="submit" :disabled="!canSend">{{ loading ? '回答中' : '发送' }}</button>
+      <button type="submit" :disabled="!canSend">{{ loading ? t('components.chatSending') : t('components.chatSend') }}</button>
     </form>
 
     <p v-if="error" class="chat-error">{{ error }}</p>
