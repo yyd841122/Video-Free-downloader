@@ -222,3 +222,51 @@ class QuotaPublic(BaseModel):
 
 
 TokenResponse.model_rebuild()
+
+
+# ===================== 套餐与订单 =====================
+
+
+class PlanPublic(BaseModel):
+    code: str
+    name: str
+    duration_days: Optional[int] = None
+    price_cents: int
+    price_display: str
+    currency: str
+    description: Optional[str] = None
+    is_lifetime: bool = False
+    sort_order: int = 0
+    recommended: bool = False
+
+
+class CheckoutRequest(BaseModel):
+    plan_code: str = Field(min_length=1, max_length=32)
+
+
+class CheckoutResponse(BaseModel):
+    order_no: str
+    checkout_url: str
+    mode: Literal["stripe", "mock"]
+
+
+class OrderPublic(BaseModel):
+    order_no: str
+    plan_code: str
+    plan_name: str
+    amount_cents: int
+    amount_display: str
+    currency: str
+    status: str
+    is_mock: bool
+    paid_at: Optional[int] = None
+    created_at: int
+    vip_granted_days: Optional[int] = None
+
+
+class OrderListResponse(BaseModel):
+    items: list[OrderPublic] = Field(default_factory=list)
+
+
+class MockPayRequest(BaseModel):
+    outcome: Literal["success", "fail", "cancel"] = "success"

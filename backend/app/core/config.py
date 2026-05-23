@@ -103,6 +103,34 @@ JWT_SECRET = os.getenv("JWT_SECRET", "").strip() or "dev-insecure-jwt-secret-ple
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", str(60 * 24 * 7)))  # 默认 7 天
 
+# --- Billing & Payment ---
+# MOCK_PAYMENT=true 时不调用 Stripe API，启用纯本地模拟支付链路（无外网可用）
+MOCK_PAYMENT = os.getenv("MOCK_PAYMENT", "true").strip().lower() in ("true", "1", "yes")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "").strip()
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
+# Checkout 展示的支付方式，逗号分隔。国内常用：card,alipay,wechat_pay
+# 须在 Stripe Dashboard → Payment methods 中一并开启对应方式
+STRIPE_PAYMENT_METHODS = [
+    item.strip()
+    for item in os.getenv("STRIPE_PAYMENT_METHODS", "card,alipay,wechat_pay").split(",")
+    if item.strip()
+] or ["card"]
+
+# 套餐价格（单位：分；¥19 = 1900 分）。可通过环境变量覆盖
+BILLING_CURRENCY = (os.getenv("BILLING_CURRENCY", "cny").strip().lower() or "cny")
+PLAN_PRICE_MONTHLY = int(os.getenv("PLAN_PRICE_MONTHLY_CENTS", "1900"))
+PLAN_PRICE_QUARTERLY = int(os.getenv("PLAN_PRICE_QUARTERLY_CENTS", "4900"))
+PLAN_PRICE_YEARLY = int(os.getenv("PLAN_PRICE_YEARLY_CENTS", "16800"))
+PLAN_PRICE_LIFETIME = int(os.getenv("PLAN_PRICE_LIFETIME_CENTS", "39900"))
+
+# Stripe Price ID（启用真 Stripe 模式时必填，可在 Stripe Dashboard 创建）
+STRIPE_PRICE_MONTHLY = os.getenv("STRIPE_PRICE_MONTHLY", "").strip()
+STRIPE_PRICE_QUARTERLY = os.getenv("STRIPE_PRICE_QUARTERLY", "").strip()
+STRIPE_PRICE_YEARLY = os.getenv("STRIPE_PRICE_YEARLY", "").strip()
+STRIPE_PRICE_LIFETIME = os.getenv("STRIPE_PRICE_LIFETIME", "").strip()
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").strip().rstrip("/")
+
 # --- Quota / Membership Benefits ---
 FREE_AI_SUMMARY_PER_DAY = int(os.getenv("FREE_AI_SUMMARY_PER_DAY", "3"))
 VIP_AI_SUMMARY_PER_DAY = int(os.getenv("VIP_AI_SUMMARY_PER_DAY", "50"))

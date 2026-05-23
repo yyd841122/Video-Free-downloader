@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ai, auth, direct, extension, files, health, tasks, users, video
+from app.api import ai, auth, billing, direct, extension, files, health, tasks, users, video
 from app.core.config import (
     ALLOWED_METHODS,
     ALLOWED_ORIGIN_REGEX,
@@ -13,11 +13,13 @@ from app.core.config import (
 )
 from app.db.database import init_db
 from app.services.cleanup_service import cleanup_downloads_once, start_cleanup_worker, stop_cleanup_worker
+from app.services.plan_service import seed_default_plans
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    seed_default_plans()
     cleanup_downloads_once()
     start_cleanup_worker()
     try:
@@ -40,6 +42,7 @@ app.add_middleware(
 app.include_router(health.router, prefix=API_PREFIX)
 app.include_router(auth.router, prefix=API_PREFIX)
 app.include_router(users.router, prefix=API_PREFIX)
+app.include_router(billing.router, prefix=API_PREFIX)
 app.include_router(ai.router, prefix=API_PREFIX)
 app.include_router(video.router, prefix=API_PREFIX)
 app.include_router(tasks.router, prefix=API_PREFIX)
