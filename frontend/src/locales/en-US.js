@@ -355,7 +355,7 @@ export default {
     email: 'Email',
     password: 'Password',
     nicknameOptional: 'Nickname (optional)',
-    emailPlaceholder: 'you@example.com',
+    emailPlaceholder: "you{'@'}example.com",
     passwordPlaceholder: 'At least 6 characters',
     nicknamePlaceholder: 'Leave blank to use email prefix',
     loginTitle: 'Log in to SaveAny',

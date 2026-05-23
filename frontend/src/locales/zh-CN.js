@@ -357,7 +357,7 @@ export default {
     email: '邮箱',
     password: '密码',
     nicknameOptional: '昵称（可选）',
-    emailPlaceholder: 'you@example.com',
+    emailPlaceholder: "you{'@'}example.com",
     passwordPlaceholder: '至少 6 位',
     nicknamePlaceholder: '留空将使用邮箱前缀',
     loginTitle: '登录 SaveAny',
