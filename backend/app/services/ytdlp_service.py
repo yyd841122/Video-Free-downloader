@@ -23,6 +23,8 @@ from app.services.task_store import task_store
 
 
 DOUYIN_FALLBACK_FORMAT_ID = "douyin_share"
+SAFE_FALLBACK_YTDLP_FORMAT = DEFAULT_FORMAT
+DOWNLOAD_LOGGER = logging.getLogger(__name__)
 DOUYIN_MOBILE_UA = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
@@ -382,6 +384,42 @@ def map_format(format_choice: str) -> str:
         "audio": "bestaudio/best",
     }
     return mapping.get(format_choice, format_choice or DEFAULT_FORMAT)
+
+
+def is_safe_fallback_ytdlp_format(mapped_format: str) -> bool:
+    normalized = (mapped_format or "").strip().lower()
+    return normalized in {SAFE_FALLBACK_YTDLP_FORMAT.lower(), "best"}
+
+
+def is_requested_format_unavailable_error(exc: Exception) -> bool:
+    lower = str(exc).lower()
+    return (
+        "requested format is not available" in lower
+        or "requested format not available" in lower
+        or "format is not available" in lower
+    )
+
+
+def format_unavailable_user_message() -> str:
+    return "当前清晰度不可用，请切换「最佳」或较低清晰度后重试。"
+
+
+def build_download_format_sequence(format_choice: str) -> list[str]:
+    primary = map_format(format_choice)
+    if is_safe_fallback_ytdlp_format(primary):
+        return [primary]
+    return [primary, SAFE_FALLBACK_YTDLP_FORMAT]
+
+
+def cleanup_download_attempt_files(task_dir: Path, *, remove_media: bool = False) -> None:
+    for part_file in task_dir.glob("*.part"):
+        part_file.unlink(missing_ok=True)
+    if not remove_media:
+        return
+    for path in task_dir.iterdir():
+        if not path.is_file() or path.name.endswith(".part"):
+            continue
+        path.unlink(missing_ok=True)
 
 
 def create_cookie_file(cookies: str | None, url: str) -> Path | None:
@@ -868,79 +906,97 @@ def download_video_task(
 
     task_store.update(task_id, status="starting")
 
-    ssl_retry_logger = logging.getLogger(__name__)
     max_ssl_retries = 3
     last_exc: Exception | None = None
+    format_sequence = build_download_format_sequence(format_choice)
 
-    for attempt in range(1, max_ssl_retries + 1):
-        try:
-            # Clean up partial files from previous attempt.
-            for part_file in task_dir.glob("*.part"):
-                part_file.unlink(missing_ok=True)
-
-            with YoutubeDL(options) as ydl:
-                ydl.download([url])
-
-            candidates = [path for path in task_dir.iterdir() if path.is_file() and not path.name.endswith(".part")]
-            if not candidates:
-                raise RuntimeError("下载已结束，但没有找到输出文件。")
-            media_candidates = [path for path in candidates if path.suffix.lower() in {".mp4", ".webm", ".mkv", ".m4a", ".mp3"}]
-            final_file = max(media_candidates or candidates, key=lambda path: path.stat().st_size)
-            task_store.update(
-                task_id,
-                status="completed",
-                progress=100,
-                filename=final_file.name,
-                file_path=final_file,
-                speed=None,
-                eta=None,
-                error=None,
+    for format_index, ytdlp_format in enumerate(format_sequence):
+        options["format"] = ytdlp_format
+        if format_index > 0:
+            DOWNLOAD_LOGGER.warning(
+                "Requested format unavailable, retrying with safe fallback format"
             )
-            last_exc = None
-            break
+            cleanup_download_attempt_files(task_dir, remove_media=True)
 
-        except Exception as exc:
-            last_exc = exc
+        for attempt in range(1, max_ssl_retries + 1):
+            try:
+                cleanup_download_attempt_files(task_dir)
 
-            # Detect SSL / network transient errors that are worth retrying.
-            is_ssl_eof = "UNEXPECTED_EOF_WHILE_READING" in str(exc)
-            is_ssl_error = "SSL" in str(exc).upper() and ("EOF" in str(exc) or "CONNECTION" in str(exc).upper())
-            is_network_transient = any(
-                keyword in str(exc)
-                for keyword in ["ConnectionResetError", "IncompleteRead", "timeout", "Timed out"]
-            )
+                with YoutubeDL(options) as ydl:
+                    ydl.download([url])
 
-            if (is_ssl_eof or is_ssl_error or is_network_transient) and attempt < max_ssl_retries:
-                ssl_retry_logger.warning(
-                    "Download attempt %d/%d failed (SSL/network error), retrying: %s",
-                    attempt, max_ssl_retries, exc,
-                )
+                candidates = [path for path in task_dir.iterdir() if path.is_file() and not path.name.endswith(".part")]
+                if not candidates:
+                    raise RuntimeError("下载已结束，但没有找到输出文件。")
+                media_candidates = [
+                    path for path in candidates if path.suffix.lower() in {".mp4", ".webm", ".mkv", ".m4a", ".mp3"}
+                ]
+                final_file = max(media_candidates or candidates, key=lambda path: path.stat().st_size)
                 task_store.update(
                     task_id,
-                    status="downloading",
-                    progress=0,
+                    status="completed",
+                    progress=100,
+                    filename=final_file.name,
+                    file_path=final_file,
                     speed=None,
                     eta=None,
-                    filename=None,
+                    error=None,
                 )
-                time.sleep(2 * attempt)  # Linear back-off: 2s, 4s, 6s.
-                continue
+                last_exc = None
+                break
 
-            # Non-retryable error or all retries exhausted.
-            if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
-                try:
-                    download_douyin_share_task(task_id, url, task_dir, format_choice)
-                    last_exc = None
+            except Exception as exc:
+                last_exc = exc
+
+                is_ssl_eof = "UNEXPECTED_EOF_WHILE_READING" in str(exc)
+                is_ssl_error = "SSL" in str(exc).upper() and ("EOF" in str(exc) or "CONNECTION" in str(exc).upper())
+                is_network_transient = any(
+                    keyword in str(exc)
+                    for keyword in ["ConnectionResetError", "IncompleteRead", "timeout", "Timed out"]
+                )
+
+                if (is_ssl_eof or is_ssl_error or is_network_transient) and attempt < max_ssl_retries:
+                    DOWNLOAD_LOGGER.warning(
+                        "Download attempt %d/%d failed (SSL/network error), retrying: %s",
+                        attempt,
+                        max_ssl_retries,
+                        exc,
+                    )
+                    task_store.update(
+                        task_id,
+                        status="downloading",
+                        progress=0,
+                        speed=None,
+                        eta=None,
+                        filename=None,
+                    )
+                    time.sleep(2 * attempt)
+                    continue
+
+                if is_requested_format_unavailable_error(exc) and format_index < len(format_sequence) - 1:
                     break
-                except Exception as fallback_exc:
-                    last_exc = fallback_exc
-                    break
+
+                if is_douyin_url(url) and is_douyin_fresh_cookie_error(exc):
+                    try:
+                        download_douyin_share_task(task_id, url, task_dir, format_choice)
+                        last_exc = None
+                        break
+                    except Exception as fallback_exc:
+                        last_exc = fallback_exc
+                        break
+                break
+
+        if last_exc is None:
+            break
+        if not is_requested_format_unavailable_error(last_exc):
             break
 
     if last_exc is not None:
         error_text = str(last_exc)
         if is_wechat_channels_url(url) and is_unsupported_url_error(last_exc):
             friendly_error = wechat_channels_unsupported_message()
+        elif is_requested_format_unavailable_error(last_exc):
+            friendly_error = format_unavailable_user_message()
         elif "UNEXPECTED_EOF_WHILE_READING" in error_text or "SSL" in error_text.upper():
             friendly_error = "网络连接异常，请稍后重试"
         elif "ConnectionResetError" in error_text or "timeout" in error_text.lower():

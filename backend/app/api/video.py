@@ -73,6 +73,12 @@ def _humanize_extract_error(exc: Exception) -> str:
         )
     if "unsupported url" in lower:
         return f"暂不支持该链接的格式或站点。请确认链接完整且为公开可访问的视频页面。\n原始信息：{raw[:200]}"
+    if (
+        "requested format is not available" in lower
+        or "requested format not available" in lower
+        or "format is not available" in lower
+    ):
+        return "当前清晰度不可用，请切换「最佳」或较低清晰度后重试。"
     if "unable to extract" in lower or "unable to download webpage" in lower:
         return (
             "无法解析该视频页面（可能是平台改版、视频被删除、地区限制或需登录）。\n"
