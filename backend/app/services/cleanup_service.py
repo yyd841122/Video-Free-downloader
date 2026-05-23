@@ -7,10 +7,23 @@ import time
 from pathlib import Path
 
 from app.core.config import DOWNLOAD_CLEANUP_INTERVAL_SECONDS, DOWNLOAD_CLEANUP_MAX_AGE_SECONDS, DOWNLOAD_DIR
+from app.services.task_meta import read_task_meta
 
 logger = logging.getLogger(__name__)
 _cleanup_thread: threading.Thread | None = None
 _stop_event = threading.Event()
+
+
+def _max_age_for_path(path: Path) -> tuple[float, float]:
+    """Return (reference_timestamp, max_age_seconds) for cleanup decision."""
+    if not path.is_dir():
+        return path.stat().st_mtime, DOWNLOAD_CLEANUP_MAX_AGE_SECONDS
+    meta = read_task_meta(path)
+    if meta:
+        created = float(meta.get("created_at") or path.stat().st_mtime)
+        retention = float(meta.get("retention_seconds") or DOWNLOAD_CLEANUP_MAX_AGE_SECONDS)
+        return created, retention
+    return path.stat().st_mtime, DOWNLOAD_CLEANUP_MAX_AGE_SECONDS
 
 
 def cleanup_downloads_once(now: float | None = None) -> int:
@@ -24,8 +37,8 @@ def cleanup_downloads_once(now: float | None = None) -> int:
         if path.name == ".gitkeep" or not path.exists():
             continue
         try:
-            mtime = path.stat().st_mtime
-            if current - mtime <= DOWNLOAD_CLEANUP_MAX_AGE_SECONDS:
+            ref_time, max_age = _max_age_for_path(path)
+            if current - ref_time <= max_age:
                 continue
             if path.is_dir():
                 shutil.rmtree(path)

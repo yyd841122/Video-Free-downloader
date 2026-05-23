@@ -68,6 +68,8 @@ ALLOWED_METHODS = parse_csv_env(
 )
 
 TASK_RETENTION_SECONDS = 60 * 60 * 6
+FREE_FILE_RETENTION_SECONDS = int(os.getenv("FREE_FILE_RETENTION_SECONDS", str(TASK_RETENTION_SECONDS)))
+VIP_FILE_RETENTION_SECONDS = int(os.getenv("VIP_FILE_RETENTION_SECONDS", str(60 * 60 * 24 * 3)))
 DIRECT_LINK_TTL_SECONDS = 60 * 10
 DEFAULT_FORMAT = "bestvideo+bestaudio/best"
 MAX_DOWNLOAD_SECONDS = int(os.getenv("MAX_DOWNLOAD_SECONDS", "3600"))
@@ -100,3 +102,14 @@ ASR_MAX_INPUT_BYTES = int(os.getenv("ASR_MAX_INPUT_BYTES", str(300 * 1024 * 1024
 JWT_SECRET = os.getenv("JWT_SECRET", "").strip() or "dev-insecure-jwt-secret-please-change"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", str(60 * 24 * 7)))  # 默认 7 天
+
+# --- Quota / Membership Benefits ---
+FREE_AI_SUMMARY_PER_DAY = int(os.getenv("FREE_AI_SUMMARY_PER_DAY", "3"))
+VIP_AI_SUMMARY_PER_DAY = int(os.getenv("VIP_AI_SUMMARY_PER_DAY", "50"))
+FREE_MAX_RESOLUTION = int(os.getenv("FREE_MAX_RESOLUTION", "720"))
+FREE_CONCURRENT_DOWNLOAD = int(os.getenv("FREE_CONCURRENT_DOWNLOAD", "1"))
+VIP_CONCURRENT_DOWNLOAD = int(os.getenv("VIP_CONCURRENT_DOWNLOAD", "3"))
+FREE_AI_CHAT_PER_TASK = int(os.getenv("FREE_AI_CHAT_PER_TASK", "5"))
+VIP_AI_CHAT_PER_TASK = int(os.getenv("VIP_AI_CHAT_PER_TASK", "0"))  # 0 = 不限
+FREE_BATCH_MAX_URLS = int(os.getenv("FREE_BATCH_MAX_URLS", "1"))
+VIP_BATCH_MAX_URLS = int(os.getenv("VIP_BATCH_MAX_URLS", "10"))

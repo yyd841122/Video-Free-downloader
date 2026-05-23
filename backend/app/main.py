@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ai, auth, direct, extension, files, health, tasks, video
+from app.api import ai, auth, direct, extension, files, health, tasks, users, video
 from app.core.config import (
     ALLOWED_METHODS,
     ALLOWED_ORIGIN_REGEX,
@@ -39,6 +39,7 @@ app.add_middleware(
 
 app.include_router(health.router, prefix=API_PREFIX)
 app.include_router(auth.router, prefix=API_PREFIX)
+app.include_router(users.router, prefix=API_PREFIX)
 app.include_router(ai.router, prefix=API_PREFIX)
 app.include_router(video.router, prefix=API_PREFIX)
 app.include_router(tasks.router, prefix=API_PREFIX)

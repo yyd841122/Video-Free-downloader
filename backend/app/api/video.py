@@ -1,8 +1,12 @@
+import re
 from threading import BoundedSemaphore
+from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
-from app.core.config import DIRECT_LINK_TTL_SECONDS, MAX_CONCURRENT_DOWNLOAD_TASKS, MAX_CONCURRENT_INFO_TASKS
+from app.core.config import DIRECT_LINK_TTL_SECONDS, MAX_CONCURRENT_INFO_TASKS
+from app.core.deps import get_optional_user
+from app.db.models import User
 from app.models.schemas import (
     DirectLinkResponse,
     DownloadTaskResponse,
@@ -11,12 +15,34 @@ from app.models.schemas import (
     VideoInfoRequest,
     VideoInfoResponse,
 )
-from app.services.ytdlp_service import download_video_task, extract_direct_link, extract_info
-from app.services.task_store import task_store
 from app.services.bilibili_auth_store import bili_auth_store
+from app.services.quota_service import QuotaExceededError, check_concurrent_download, check_resolution_allowed
+from app.services.task_meta import write_task_meta
+from app.services.task_store import task_store
+from app.services.ytdlp_service import download_video_task, extract_direct_link, extract_info
 
 router = APIRouter(prefix="/video")
 info_semaphore = BoundedSemaphore(MAX_CONCURRENT_INFO_TASKS)
+
+
+_FORMAT_HEIGHT_PATTERN = re.compile(r"(\d{3,4})")
+
+
+def _guess_height_from_format(format_str: str) -> int:
+    """从 yt-dlp 的 format 字符串里粗略猜测请求的最高画质，用于免费用户分辨率拦截。
+
+    例如 "137+140"（YouTube 1080p）→ 137 不会被识别为高度，返回 0；
+    但 "best[height<=720]" 或前端传入的 "1080p" 等可识别情况会返回对应数值。"""
+
+    if not format_str or format_str.lower() in {"best", "bestvideo", "worst"}:
+        return 0
+    matches = _FORMAT_HEIGHT_PATTERN.findall(format_str)
+    if not matches:
+        return 0
+    heights = [int(m) for m in matches if 240 <= int(m) <= 4320]
+    if not heights:
+        return 0
+    return max(heights)
 
 
 def _humanize_extract_error(exc: Exception) -> str:
@@ -59,25 +85,62 @@ def video_info(payload: VideoInfoRequest) -> VideoInfoResponse:
 
 
 @router.post("/download", response_model=DownloadTaskResponse)
-def create_download_task(payload: VideoDownloadRequest, background_tasks: BackgroundTasks) -> DownloadTaskResponse:
-    if task_store.active_count() >= MAX_CONCURRENT_DOWNLOAD_TASKS:
-        raise HTTPException(status_code=429, detail="当前下载任务较多，请稍后再试")
-    task = task_store.create(str(payload.url))
+def create_download_task(
+    payload: VideoDownloadRequest,
+    background_tasks: BackgroundTasks,
+    user: Optional[User] = Depends(get_optional_user),
+) -> DownloadTaskResponse:
     cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
+    return _start_download_job(
+        background_tasks=background_tasks,
+        user=user,
+        url=str(payload.url),
+        format_choice=payload.format,
+        with_subtitle=payload.with_subtitle,
+        cookies=cookies,
+        browser_cookies=payload.browser_cookies,
+    )
+
+
+def _start_download_job(
+    *,
+    background_tasks: BackgroundTasks,
+    user: Optional[User],
+    url: str,
+    format_choice: str,
+    with_subtitle: bool,
+    cookies: str | None,
+    browser_cookies: str | None,
+) -> DownloadTaskResponse:
+    try:
+        check_concurrent_download(user)
+        check_resolution_allowed(user, _guess_height_from_format(format_choice))
+    except QuotaExceededError as exc:
+        raise HTTPException(status_code=402, detail=str(exc)) from exc
+    task = task_store.create(url, user_id=user.id if user else None)
+    write_task_meta(task.task_id, user)
     background_tasks.add_task(
         download_video_task,
         task.task_id,
-        str(payload.url),
-        payload.format,
-        payload.with_subtitle,
+        url,
+        format_choice,
+        with_subtitle,
         cookies,
-        payload.browser_cookies,
+        browser_cookies,
     )
     return DownloadTaskResponse(task_id=task.task_id, status=task.status)
 
 
 @router.post("/direct", response_model=DirectLinkResponse)
-def create_direct_link(payload: VideoDirectRequest, request: Request) -> DirectLinkResponse:
+def create_direct_link(
+    payload: VideoDirectRequest,
+    request: Request,
+    user: Optional[User] = Depends(get_optional_user),
+) -> DirectLinkResponse:
+    try:
+        check_resolution_allowed(user, _guess_height_from_format(payload.format))
+    except QuotaExceededError as exc:
+        raise HTTPException(status_code=402, detail=str(exc)) from exc
     try:
         cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
         info, token, selected_url = extract_direct_link(

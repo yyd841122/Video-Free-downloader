@@ -13,6 +13,7 @@ from app.core.config import TASK_RETENTION_SECONDS
 class DownloadTask:
     task_id: str
     url: str
+    user_id: int | None = None
     status: str = "queued"
     progress: float = 0
     speed: str | None = None
@@ -29,10 +30,10 @@ class TaskStore:
         self._lock = Lock()
         self._tasks: dict[str, DownloadTask] = {}
 
-    def create(self, url: str) -> DownloadTask:
+    def create(self, url: str, user_id: int | None = None) -> DownloadTask:
         with self._lock:
             self.cleanup_locked()
-            task = DownloadTask(task_id=str(uuid.uuid4()), url=url)
+            task = DownloadTask(task_id=str(uuid.uuid4()), url=url, user_id=user_id)
             self._tasks[task.task_id] = task
             return task
 
@@ -40,12 +41,18 @@ class TaskStore:
         with self._lock:
             return self._tasks.get(task_id)
 
+    _ACTIVE_STATUSES = frozenset({"queued", "starting", "downloading", "processing"})
+
     def active_count(self) -> int:
+        with self._lock:
+            return sum(1 for task in self._tasks.values() if task.status in self._ACTIVE_STATUSES)
+
+    def active_count_for_user(self, user_id: int | None) -> int:
         with self._lock:
             return sum(
                 1
                 for task in self._tasks.values()
-                if task.status in {"queued", "starting", "downloading", "processing"}
+                if task.user_id == user_id and task.status in self._ACTIVE_STATUSES
             )
 
     def update(self, task_id: str, **kwargs: object) -> None:

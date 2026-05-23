@@ -1,6 +1,6 @@
-from typing import Any
+from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
 
 
 class VideoInfoRequest(BaseModel):
@@ -178,3 +178,47 @@ class AiChatRequest(BaseModel):
 class AiChatResponse(BaseModel):
     answer: str
     references: list[str] = Field(default_factory=list)
+
+
+# ===================== 用户与会员 =====================
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=64)
+    nickname: Optional[str] = Field(default=None, max_length=64)
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=64)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    user: "UserPublic"
+
+
+class UserPublic(BaseModel):
+    id: int
+    email: EmailStr
+    nickname: Optional[str] = None
+    is_vip: bool = False
+    is_lifetime_vip: bool = False
+    vip_expire_at: Optional[int] = None
+
+
+class QuotaPublic(BaseModel):
+    is_vip: bool = False
+    ai_used_today: int = 0
+    ai_daily_limit: int = 0
+    ai_remaining: int = 0
+    max_resolution: int = 720
+    max_concurrent: int = 1
+    ai_chat_per_task: int = 5
+    active_download_tasks: int = 0
+    active_ai_tasks: int = 0
+
+
+TokenResponse.model_rebuild()

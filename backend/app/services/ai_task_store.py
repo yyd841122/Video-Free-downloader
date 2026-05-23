@@ -15,6 +15,7 @@ from app.models.schemas import AiSummaryResult, TranscriptSegment
 class AiSummaryTask:
     task_id: str
     url: str
+    user_id: int | None = None
     status: str = "queued"
     progress: float = 0
     message: str | None = None
@@ -35,10 +36,10 @@ class AiSummaryTaskStore:
         self._lock = Lock()
         self._tasks: dict[str, AiSummaryTask] = {}
 
-    def create(self, url: str) -> AiSummaryTask:
+    def create(self, url: str, user_id: int | None = None) -> AiSummaryTask:
         with self._lock:
             self.cleanup_locked()
-            task = AiSummaryTask(task_id=str(uuid.uuid4()), url=url)
+            task = AiSummaryTask(task_id=str(uuid.uuid4()), url=url, user_id=user_id)
             self._tasks[task.task_id] = task
             return task
 
@@ -46,12 +47,23 @@ class AiSummaryTaskStore:
         with self._lock:
             return self._tasks.get(task_id)
 
+    def restore(self, task: AiSummaryTask) -> None:
+        with self._lock:
+            self._tasks[task.task_id] = task
+            task.updated_at = time.time()
+
+    _ACTIVE_STATUSES = frozenset({"queued", "extracting", "summarizing"})
+
     def active_count(self) -> int:
+        with self._lock:
+            return sum(1 for task in self._tasks.values() if task.status in self._ACTIVE_STATUSES)
+
+    def active_count_for_user(self, user_id: int | None) -> int:
         with self._lock:
             return sum(
                 1
                 for task in self._tasks.values()
-                if task.status in {"queued", "extracting", "summarizing"}
+                if task.user_id == user_id and task.status in self._ACTIVE_STATUSES
             )
 
     def update(self, task_id: str, **kwargs: object) -> None:
