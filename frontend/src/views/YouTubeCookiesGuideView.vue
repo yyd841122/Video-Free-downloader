@@ -5,6 +5,11 @@ import { RouterLink } from 'vue-router'
 
 const { t, tm } = useI18n()
 
+const toolReasons = computed(() => {
+  const raw = tm('help.youtubeCookies.toolReasons')
+  return Array.isArray(raw) ? raw : []
+})
+
 const securityItems = computed(() => {
   const raw = tm('help.youtubeCookies.securityItems')
   return Array.isArray(raw) ? raw : []
@@ -26,6 +31,14 @@ const steps = computed(() => {
     <section class="help-section">
       <h2>{{ t('help.youtubeCookies.whyTitle') }}</h2>
       <p>{{ t('help.youtubeCookies.whyBody') }}</p>
+    </section>
+
+    <section class="help-section help-tool">
+      <h2>{{ t('help.youtubeCookies.toolTitle') }}</h2>
+      <p class="help-tool-name">{{ t('help.youtubeCookies.toolName') }}</p>
+      <ul>
+        <li v-for="(reason, index) in toolReasons" :key="index">{{ reason }}</li>
+      </ul>
     </section>
 
     <section class="help-section help-callout">
@@ -100,6 +113,31 @@ const steps = computed(() => {
   margin: 0 0 10px;
   font-size: 14.5px;
   color: #3d4654;
+}
+
+.help-tool {
+  padding: 16px 18px;
+  background: #f5f9ff;
+  border: 1px solid #dce8ff;
+  border-radius: 14px;
+}
+
+.help-tool-name {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1a2540;
+}
+
+.help-tool ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 14.5px;
+  color: #3d4654;
+}
+
+.help-tool li {
+  margin-bottom: 8px;
 }
 
 .help-callout {
