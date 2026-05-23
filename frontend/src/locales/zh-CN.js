@@ -218,6 +218,8 @@ export default {
         '部分 YouTube 视频会要求登录验证。由于网页端无法直接读取你在 YouTube 的登录状态，你可以手动导出 cookies.txt，并在解析时上传或粘贴。',
       toolTitle: '推荐工具',
       toolName: 'Get cookies.txt LOCALLY',
+      toolStoreUrl:
+        'https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc',
       toolReasons: [
         '支持导出 Netscape 格式的 cookies.txt。',
         '该格式适合 yt-dlp 使用。',
@@ -233,10 +235,11 @@ export default {
         'SaveAny 不会保存你的 YouTube cookies，只会在本次解析中临时使用；解析完成后会自动清理。',
         '任何扩展都无法保证 100% 安全，请仅在必要时使用。',
       ],
+      step2Before: '第二步：安装扩展 ',
+      step2After: '。',
       stepsTitle: '操作步骤',
       steps: [
         '第一步：在 Chrome 或 Edge 浏览器中登录 YouTube。',
-        '第二步：安装扩展 Get cookies.txt LOCALLY。',
         '第三步：打开 https://www.youtube.com。',
         '第四步：点击浏览器右上角扩展图标。',
         '第五步：选择导出 Netscape 格式 cookies.txt。',

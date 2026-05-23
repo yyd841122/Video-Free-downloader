@@ -218,6 +218,8 @@ export default {
         'Some YouTube videos require sign-in verification. The web app cannot read your YouTube login state directly, so you can export cookies.txt manually and upload or paste it when parsing.',
       toolTitle: 'Recommended extension',
       toolName: 'Get cookies.txt LOCALLY',
+      toolStoreUrl:
+        'https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc',
       toolReasons: [
         'Exports cookies.txt in Netscape format.',
         'That format works with yt-dlp.',
@@ -233,10 +235,11 @@ export default {
         'SaveAny does not store your YouTube cookies; they are used only for the current parse and cleared afterward.',
         'No extension can be guaranteed 100% safe—use only when necessary.',
       ],
+      step2Before: 'Step 2: Install the extension ',
+      step2After: '.',
       stepsTitle: 'Steps',
       steps: [
         'Step 1: Sign in to YouTube in Chrome or Microsoft Edge.',
-        'Step 2: Install the extension Get cookies.txt LOCALLY.',
         'Step 3: Open https://www.youtube.com.',
         'Step 4: Click the extensions icon in the browser toolbar.',
         'Step 5: Choose to export Netscape-format cookies.txt.',

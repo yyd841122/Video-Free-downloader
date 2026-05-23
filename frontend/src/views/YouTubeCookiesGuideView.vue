@@ -19,6 +19,8 @@ const steps = computed(() => {
   const raw = tm('help.youtubeCookies.steps')
   return Array.isArray(raw) ? raw : []
 })
+
+const toolStoreUrl = computed(() => t('help.youtubeCookies.toolStoreUrl'))
 </script>
 
 <template>
@@ -35,7 +37,16 @@ const steps = computed(() => {
 
     <section class="help-section help-tool">
       <h2>{{ t('help.youtubeCookies.toolTitle') }}</h2>
-      <p class="help-tool-name">{{ t('help.youtubeCookies.toolName') }}</p>
+      <p class="help-tool-name">
+        <a
+          class="help-tool-link"
+          :href="toolStoreUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ t('help.youtubeCookies.toolName') }}
+        </a>
+      </p>
       <ul>
         <li v-for="(reason, index) in toolReasons" :key="index">{{ reason }}</li>
       </ul>
@@ -51,7 +62,20 @@ const steps = computed(() => {
     <section class="help-section">
       <h2>{{ t('help.youtubeCookies.stepsTitle') }}</h2>
       <ol>
-        <li v-for="(step, index) in steps" :key="index">{{ step }}</li>
+        <li v-if="steps[0]">{{ steps[0] }}</li>
+        <li>
+          {{ t('help.youtubeCookies.step2Before') }}
+          <a
+            class="help-store-link"
+            :href="toolStoreUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {{ t('help.youtubeCookies.toolName') }}
+          </a>
+          {{ t('help.youtubeCookies.step2After') }}
+        </li>
+        <li v-for="(step, index) in steps.slice(1)" :key="index + 1">{{ step }}</li>
       </ol>
     </section>
 
@@ -126,7 +150,19 @@ const steps = computed(() => {
   margin: 0 0 12px;
   font-size: 16px;
   font-weight: 800;
-  color: #1a2540;
+}
+
+.help-tool-link,
+.help-store-link {
+  color: #2268f0;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.help-tool-link:hover,
+.help-store-link:hover {
+  color: #1a54c4;
 }
 
 .help-tool ul {
