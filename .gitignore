@@ -21,3 +21,29 @@ tmp/
 # Local environment
 .env
 .env.*
+
+# Runtime databases and SQLite artifacts
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+backend/data/*.db
+backend/data/*.db-*
+backend/data/*.sqlite
+backend/data/*.sqlite3
+backend/data/test_*.db
+backend/data/runtime_smoke.db
+backend/data/runtime_smoke.db-*
+
+# Runtime logs
+*.log
+backend/server.*.log
+frontend/server.*.log
+
+# Runtime temp/output artifacts
+temp/
+downloads/
+backend/downloads/
+backend/data/*.bak
+backend/data/*.backup
