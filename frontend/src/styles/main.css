@@ -717,6 +717,114 @@ fieldset legend,
   color: #11865b;
 }
 
+.youtube-auth-panel {
+  display: grid;
+  gap: 14px;
+  margin: 16px auto 0;
+  padding: 18px 22px 20px;
+  width: min(520px, 100%);
+  background: linear-gradient(180deg, #fff8f5 0%, #ffffff 100%);
+  border: 1px solid #ffe0d6;
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(255, 87, 51, 0.08);
+}
+
+.youtube-auth-prompt {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.youtube-auth-prompt h3 {
+  margin: 0;
+  color: #1a2540;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.youtube-auth-prompt p {
+  margin: 0;
+  color: #6b7791;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.youtube-auth-hint {
+  margin: 0;
+  color: #8a95a6;
+  font-size: 12px;
+  text-align: center;
+}
+
+.youtube-cookie-input {
+  width: 100%;
+  min-height: 108px;
+  padding: 12px 14px;
+  color: #1b202a;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  background: #ffffff;
+  border: 1px dashed #ffc9b8;
+  border-radius: 12px;
+}
+
+.youtube-cookie-input:focus {
+  outline: 2px solid rgba(255, 87, 51, 0.25);
+  border-color: #ff8a65;
+}
+
+.youtube-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.youtube-auth-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.youtube-auth-button {
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 800;
+  border-radius: 999px;
+  border: 1px solid #ffd4c8;
+  background: #ffffff;
+  color: #c2410c;
+  cursor: pointer;
+}
+
+.youtube-auth-button.primary {
+  color: #ffffff;
+  background: linear-gradient(135deg, #ff6b35 0%, #e85d2c 100%);
+  border-color: transparent;
+}
+
+.youtube-auth-button.muted {
+  color: #6b7791;
+  border-color: #e8eef7;
+}
+
+.youtube-auth-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.youtube-auth-message {
+  margin: 0;
+  color: #8a95a6;
+  font-size: 13px;
+  text-align: center;
+  font-weight: 700;
+}
+
 .result-layout {
   display: grid;
   grid-template-columns: 1.08fr 0.92fr;

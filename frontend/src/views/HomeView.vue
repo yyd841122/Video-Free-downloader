@@ -36,6 +36,13 @@ const biliLoginLoading = ref(false)
 const biliPollTimer = ref(null)
 const showBiliAuthPanel = ref(false)
 const biliAuthPanelEl = ref(null)
+const showYouTubeAuthPanel = ref(false)
+const youtubeAuthPanelEl = ref(null)
+const youtubeCookiesDraft = ref('')
+const youtubeCookieFileInput = ref(null)
+const youtubeAuthMessage = ref('')
+// 用户提交 YouTube Cookie 后自动续解析（对齐 B 站 pendingParseAfterLogin）。
+const pendingParseAfterYouTubeAuth = ref(false)
 // 标记"扫码登录成功后要继续解析视频"。
 // 触发场景：用户粘贴 B 站链接但还没登录态，前端不直接调 /api/video/info（避免后端被 WAF 撞 412），
 // 而是先自动弹码，扫成功后通过这个 flag 自动重试 parseInfo。
@@ -601,16 +608,44 @@ const clearUrl = () => {
   url.value = ''
   showBiliAuthPanel.value = false
   pendingParseAfterLogin.value = false
+  showYouTubeAuthPanel.value = false
+  pendingParseAfterYouTubeAuth.value = false
+  youtubeCookiesDraft.value = ''
+  youtubeAuthMessage.value = ''
+  cookiesText.value = ''
   urlInput.value?.focus()
 }
 
 const isBiliUrl = (value) => /(^|\.)bilibili\.com|(^|\.)b23\.tv/i.test(String(value || ''))
+
+const isYouTubeUrl = (value) =>
+  /(^|\.)youtube\.com|(^|\.)youtube-nocookie\.com|youtu\.be/i.test(String(value || ''))
 
 // 后端在解析失败时可能返回带"412 / 风控挑战 / 扫码登录"等关键词的中文长文案
 // （见 backend/app/api/video.py 里的 _humanize_extract_error）。
 // 前端检测到这类错误就把它"吞掉"，转成"重新弹码登录"的 UX，不让用户看到那段长说明。
 const looksLikeBiliAuthError = (message) =>
   /412|precondition failed|风控|扫码登录|登录态/i.test(String(message || ''))
+
+// YouTube 机房 IP 常触发 bot / sign-in / cookies 类错误；吞掉英文长报错，改弹 Cookie 引导面板。
+const looksLikeYouTubeAuthError = (message) => {
+  const text = String(message || '')
+  const lower = text.toLowerCase()
+  return (
+    /sign in to confirm/i.test(text) ||
+    /not a bot/i.test(text) ||
+    /bot verification/i.test(lower) ||
+    /confirm you.?re not a robot/i.test(lower) ||
+    /cookies-from-browser/i.test(lower) ||
+    /cookies are required/i.test(lower) ||
+    /cookies are no longer valid/i.test(lower) ||
+    /use --cookies/i.test(lower) ||
+    /\b429\b/.test(text) ||
+    /too many requests/i.test(lower) ||
+    /login required/i.test(lower) ||
+    /unable to download webpage/i.test(lower)
+  )
+}
 
 const resetBiliLoginState = () => {
   biliLoggedIn.value = false
@@ -632,6 +667,52 @@ const focusBiliAuthPanel = () => {
       /* ignore */
     }
   })
+}
+
+const focusYouTubeAuthPanel = () => {
+  nextTick(() => {
+    try {
+      youtubeAuthPanelEl.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } catch {
+      /* ignore */
+    }
+  })
+}
+
+const dismissYouTubeAuthPanel = () => {
+  showYouTubeAuthPanel.value = false
+  pendingParseAfterYouTubeAuth.value = false
+  youtubeAuthMessage.value = ''
+}
+
+const triggerYouTubeCookieUpload = () => {
+  youtubeCookieFileInput.value?.click()
+}
+
+const onYouTubeCookieFileChange = async (event) => {
+  const [file] = Array.from(event.target.files || [])
+  if (!file) {
+    return
+  }
+  try {
+    youtubeCookiesDraft.value = await file.text()
+    youtubeAuthMessage.value = t('home.youtubeCookieFileLoaded', { name: file.name })
+  } catch {
+    youtubeAuthMessage.value = t('home.youtubeCookieFileFailed')
+  }
+  event.target.value = ''
+}
+
+const submitYouTubeCookiesAndParse = async () => {
+  const trimmed = youtubeCookiesDraft.value.trim()
+  if (!trimmed) {
+    youtubeAuthMessage.value = t('home.youtubeCookieEmpty')
+    return
+  }
+  cookiesText.value = trimmed
+  youtubeAuthMessage.value = ''
+  pendingParseAfterYouTubeAuth.value = false
+  await parseInfo()
 }
 
 const triggerFileDownload = (downloadUrl, taskId) => {
@@ -657,6 +738,7 @@ const parseInfo = async () => {
   }
   const requestUrl = url.value.trim()
   const isBili = isBiliUrl(requestUrl)
+  const isYouTube = isYouTubeUrl(requestUrl)
 
   // 预检：B 站链接 + 还没扫码登录 → 直接弹码，不发起会触发 WAF 412 的 /api/video/info 调用。
   // 扫码成功后由 startBiliLogin 内部 polling 自动回调 parseInfo() 继续解析。
@@ -683,6 +765,10 @@ const parseInfo = async () => {
     )
     const defaultPick = formatChoices.value.find((item) => !item.vipOnly) || formatChoices.value[0]
     selectedFormat.value = defaultPick?.id || ''
+    if (isYouTube) {
+      showYouTubeAuthPanel.value = false
+      pendingParseAfterYouTubeAuth.value = false
+    }
   } catch (err) {
     // 兜底：扫过码但 session 过期 / 后端被 WAF 撞 412 / 其他登录态失效场景。
     // 不显示 backend 那段"B 站风控挑战 + 长建议"，直接清空会话 + 重新弹码 + 自动续解析。
@@ -694,6 +780,16 @@ const parseInfo = async () => {
       error.value = ''
       focusBiliAuthPanel()
       await startBiliLogin()
+      return
+    }
+    if (isYouTube && looksLikeYouTubeAuthError(err?.message)) {
+      showYouTubeAuthPanel.value = true
+      pendingParseAfterYouTubeAuth.value = true
+      error.value = ''
+      if (!youtubeCookiesDraft.value.trim() && cookiesText.value.trim()) {
+        youtubeCookiesDraft.value = cookiesText.value.trim()
+      }
+      focusYouTubeAuthPanel()
       return
     }
     error.value = err.message
@@ -1184,6 +1280,46 @@ const startBiliLogin = async () => {
             {{ biliLoginMessage }}
           </span>
         </div>
+      </div>
+
+      <div v-if="showYouTubeAuthPanel" ref="youtubeAuthPanelEl" class="youtube-auth-panel">
+        <div class="youtube-auth-prompt">
+          <h3>{{ t('home.youtubeAuthTitle') }}</h3>
+          <p>{{ t('home.youtubeAuthSubtitle') }}</p>
+        </div>
+        <p class="youtube-auth-hint">{{ t('home.youtubeAuthHint') }}</p>
+        <textarea
+          v-model="youtubeCookiesDraft"
+          class="youtube-cookie-input"
+          rows="5"
+          :placeholder="t('home.youtubeCookiePlaceholder')"
+          spellcheck="false"
+          autocomplete="off"
+        ></textarea>
+        <input
+          ref="youtubeCookieFileInput"
+          class="youtube-auth-file"
+          type="file"
+          accept=".txt,text/plain"
+          @change="onYouTubeCookieFileChange"
+        />
+        <div class="youtube-auth-actions">
+          <button class="youtube-auth-button" type="button" @click="triggerYouTubeCookieUpload">
+            {{ t('home.youtubeCookieUpload') }}
+          </button>
+          <button
+            class="youtube-auth-button primary"
+            type="button"
+            :disabled="loading"
+            @click="submitYouTubeCookiesAndParse"
+          >
+            {{ loading ? '…' : t('home.youtubeCookieContinue') }}
+          </button>
+          <button class="youtube-auth-button muted" type="button" :disabled="loading" @click="dismissYouTubeAuthPanel">
+            {{ t('home.youtubeCookieCancel') }}
+          </button>
+        </div>
+        <p v-if="youtubeAuthMessage" class="youtube-auth-message">{{ youtubeAuthMessage }}</p>
       </div>
     </section>
   </section>
