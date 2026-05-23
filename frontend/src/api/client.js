@@ -1,3 +1,18 @@
+// 生产构建（vite build）默认指向线上后端域名；
+// 本地 `npm run dev` 保持空字符串，由 Vite dev server 的 /api 代理转发到本地后端。
+// 如需在构建期临时覆盖（例如预发环境），可以设置 VITE_API_BASE_URL=https://...
+const DEFAULT_PROD_API_BASE_URL = 'https://api-videodown.cozyguidehub.com'
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '')
+export const API_BASE_URL =
+  RAW_API_BASE_URL || (import.meta.env.PROD ? DEFAULT_PROD_API_BASE_URL : '')
+
+const resolveApiUrl = (url) => {
+  if (!url) return url
+  if (/^https?:\/\//i.test(url)) return url
+  if (!API_BASE_URL) return url
+  return url.startsWith('/') ? `${API_BASE_URL}${url}` : `${API_BASE_URL}/${url}`
+}
+
 const parseError = async (response) => {
   try {
     const data = await response.json()
@@ -8,7 +23,7 @@ const parseError = async (response) => {
 }
 
 export const request = async (url, options = {}) => {
-  const response = await fetch(url, {
+  const response = await fetch(resolveApiUrl(url), {
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {}),
@@ -24,7 +39,7 @@ export const request = async (url, options = {}) => {
 }
 
 export const requestForm = async (url, formData) => {
-  const response = await fetch(url, {
+  const response = await fetch(resolveApiUrl(url), {
     method: 'POST',
     body: formData,
   })
