@@ -24,6 +24,10 @@ load_env_file(BASE_DIR / ".env")
 DOWNLOAD_DIR = BASE_DIR / "downloads"
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{(DATA_DIR / 'app.db').as_posix()}")
+
 APP_NAME = "Video Free Downloader"
 API_PREFIX = "/api"
 
@@ -91,3 +95,8 @@ ASR_RESPONSE_FORMAT = os.getenv("ASR_RESPONSE_FORMAT", "srt").strip()
 ASR_TIMEOUT_SECONDS = int(os.getenv("ASR_TIMEOUT_SECONDS", "900"))
 ASR_MAX_AUDIO_MINUTES = int(os.getenv("ASR_MAX_AUDIO_MINUTES", "90"))
 ASR_MAX_INPUT_BYTES = int(os.getenv("ASR_MAX_INPUT_BYTES", str(300 * 1024 * 1024)))
+
+# --- Auth ---
+JWT_SECRET = os.getenv("JWT_SECRET", "").strip() or "dev-insecure-jwt-secret-please-change"
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", str(60 * 24 * 7)))  # 默认 7 天

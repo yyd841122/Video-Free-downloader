@@ -11,11 +11,13 @@ from app.core.config import (
     API_PREFIX,
     APP_NAME,
 )
+from app.db.database import init_db
 from app.services.cleanup_service import cleanup_downloads_once, start_cleanup_worker, stop_cleanup_worker
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_db()
     cleanup_downloads_once()
     start_cleanup_worker()
     try:
