@@ -4,7 +4,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import ai, auth, direct, extension, files, health, tasks, video
-from app.core.config import ALLOWED_ORIGIN_REGEX, ALLOWED_ORIGINS, API_PREFIX, APP_NAME
+from app.core.config import (
+    ALLOWED_METHODS,
+    ALLOWED_ORIGIN_REGEX,
+    ALLOWED_ORIGINS,
+    API_PREFIX,
+    APP_NAME,
+)
 from app.services.cleanup_service import cleanup_downloads_once, start_cleanup_worker, stop_cleanup_worker
 
 
@@ -25,7 +31,7 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=ALLOWED_ORIGIN_REGEX,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=ALLOWED_METHODS,
     allow_headers=["*"],
 )
 

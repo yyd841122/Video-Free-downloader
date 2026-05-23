@@ -92,7 +92,7 @@ class BiliQrStatusResponse(BaseModel):
 
 class ExtensionHeader(BaseModel):
     name: str = Field(max_length=128)
-    value: str = Field(max_length=100_000)
+    value: str = Field(max_length=16_384)  # 16KB 上限，避免 header value 内存占用过大
 
 
 class ExtensionMediaRequest(BaseModel):
@@ -100,7 +100,7 @@ class ExtensionMediaRequest(BaseModel):
     method: str = Field(default="GET", max_length=16)
     type: str | None = Field(default=None, max_length=64)
     content_type: str | None = Field(default=None, max_length=256)
-    request_headers: list[ExtensionHeader] = Field(default_factory=list)
+    request_headers: list[ExtensionHeader] = Field(default_factory=list, max_length=64)
     timestamp: float | None = None
 
 
@@ -108,7 +108,7 @@ class ExtensionCaptureRequest(BaseModel):
     page_url: str = Field(max_length=20_000)
     page_title: str | None = Field(default=None, max_length=512)
     include_sensitive_headers: bool = False
-    media_requests: list[ExtensionMediaRequest] = Field(default_factory=list, max_length=500)
+    media_requests: list[ExtensionMediaRequest] = Field(default_factory=list, max_length=100)
 
 
 class ExtensionCaptureResponse(BaseModel):

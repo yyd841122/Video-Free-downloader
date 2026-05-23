@@ -43,7 +43,25 @@ ALLOWED_ORIGINS = parse_csv_env(
         "http://127.0.0.1:4173",
     ],
 )
-ALLOWED_ORIGIN_REGEX = os.getenv("ALLOWED_ORIGIN_REGEX", r"chrome-extension://.*").strip() or None
+
+# CORS origin 正则白名单：默认禁止任意 chrome-extension://*
+# 如需放行特定扩展，请在环境变量中明确指定其 ID，例如：
+#   ALLOWED_ORIGIN_REGEX=chrome-extension://abcdef0123456789abcdef0123456789
+# 或 ALLOWED_EXTENSION_IDS=abcdef...,012345... （二选一）
+ALLOWED_ORIGIN_REGEX = os.getenv("ALLOWED_ORIGIN_REGEX", "").strip() or None
+ALLOWED_EXTENSION_IDS = parse_csv_env("ALLOWED_EXTENSION_IDS", [])
+if not ALLOWED_ORIGIN_REGEX and ALLOWED_EXTENSION_IDS:
+    # 仅允许指定 extension id 的 chrome-extension origin
+    _ext_ids_pattern = "|".join(item for item in ALLOWED_EXTENSION_IDS if item)
+    if _ext_ids_pattern:
+        ALLOWED_ORIGIN_REGEX = rf"^chrome-extension://({_ext_ids_pattern})$"
+
+# 生产环境默认仅允许业务实际使用的 HTTP 方法；如需 PUT/DELETE/PATCH，可通过
+# ALLOWED_METHODS=GET,POST,PUT,DELETE,PATCH,OPTIONS 覆盖
+ALLOWED_METHODS = parse_csv_env(
+    "ALLOWED_METHODS",
+    ["GET", "POST", "OPTIONS"],
+)
 
 TASK_RETENTION_SECONDS = 60 * 60 * 6
 DIRECT_LINK_TTL_SECONDS = 60 * 10
