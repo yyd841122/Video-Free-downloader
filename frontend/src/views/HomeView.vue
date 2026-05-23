@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
@@ -34,6 +34,11 @@ const biliLoggedIn = ref(false)
 const biliLoginLoading = ref(false)
 const biliPollTimer = ref(null)
 const showBiliAuthPanel = ref(false)
+const biliAuthPanelEl = ref(null)
+// 标记"扫码登录成功后要继续解析视频"。
+// 触发场景：用户粘贴 B 站链接但还没登录态，前端不直接调 /api/video/info（避免后端被 WAF 撞 412），
+// 而是先自动弹码，扫成功后通过这个 flag 自动重试 parseInfo。
+const pendingParseAfterLogin = ref(false)
 const selectedFormat = ref('best')
 const loading = ref(false)
 const downloading = ref(false)
@@ -582,10 +587,39 @@ const resetResult = () => {
 const clearUrl = () => {
   url.value = ''
   showBiliAuthPanel.value = false
+  pendingParseAfterLogin.value = false
   urlInput.value?.focus()
 }
 
 const isBiliUrl = (value) => /(^|\.)bilibili\.com|(^|\.)b23\.tv/i.test(String(value || ''))
+
+// 后端在解析失败时可能返回带"412 / 风控挑战 / 扫码登录"等关键词的中文长文案
+// （见 backend/app/api/video.py 里的 _humanize_extract_error）。
+// 前端检测到这类错误就把它"吞掉"，转成"重新弹码登录"的 UX，不让用户看到那段长说明。
+const looksLikeBiliAuthError = (message) =>
+  /412|precondition failed|风控|扫码登录|登录态/i.test(String(message || ''))
+
+const resetBiliLoginState = () => {
+  biliLoggedIn.value = false
+  biliSessionId.value = ''
+  biliQrImage.value = ''
+  biliLoginMessage.value = ''
+  forgetBiliSession()
+  if (biliPollTimer.value) {
+    window.clearInterval(biliPollTimer.value)
+    biliPollTimer.value = null
+  }
+}
+
+const focusBiliAuthPanel = () => {
+  nextTick(() => {
+    try {
+      biliAuthPanelEl.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } catch {
+      /* ignore */
+    }
+  })
+}
 
 const triggerFileDownload = (downloadUrl, taskId) => {
   if (!downloadUrl || downloadedTaskIds.value.has(taskId)) {
@@ -606,7 +640,22 @@ const parseInfo = async () => {
     return
   }
   const requestUrl = url.value.trim()
-  showBiliAuthPanel.value = isBiliUrl(requestUrl)
+  const isBili = isBiliUrl(requestUrl)
+
+  // 预检：B 站链接 + 还没扫码登录 → 直接弹码，不发起会触发 WAF 412 的 /api/video/info 调用。
+  // 扫码成功后由 startBiliLogin 内部 polling 自动回调 parseInfo() 继续解析。
+  if (isBili && !activeAuthSessionId.value) {
+    showBiliAuthPanel.value = true
+    pendingParseAfterLogin.value = true
+    error.value = ''
+    focusBiliAuthPanel()
+    if (!biliLoginLoading.value && !biliPollTimer.value) {
+      await startBiliLogin()
+    }
+    return
+  }
+
+  showBiliAuthPanel.value = isBili
   resetResult()
   loading.value = true
   try {
@@ -619,6 +668,18 @@ const parseInfo = async () => {
     const defaultPick = formatChoices.value.find((item) => !item.vipOnly) || formatChoices.value[0]
     selectedFormat.value = defaultPick?.id || ''
   } catch (err) {
+    // 兜底：扫过码但 session 过期 / 后端被 WAF 撞 412 / 其他登录态失效场景。
+    // 不显示 backend 那段"B 站风控挑战 + 长建议"，直接清空会话 + 重新弹码 + 自动续解析。
+    if (isBili && looksLikeBiliAuthError(err?.message)) {
+      resetBiliLoginState()
+      showBiliAuthPanel.value = true
+      pendingParseAfterLogin.value = true
+      biliLoginMessage.value = t('home.biliSessionExpiredHint')
+      error.value = ''
+      focusBiliAuthPanel()
+      await startBiliLogin()
+      return
+    }
     error.value = err.message
   } finally {
     loading.value = false
@@ -959,6 +1020,16 @@ const startBiliLogin = async () => {
           rememberBiliSession(result.session_id)
           window.clearInterval(biliPollTimer.value)
           biliPollTimer.value = null
+          // 如果用户当时是因为粘贴 B 站链接被拦下来才弹码的，
+          // 登录成功后自动续上"解析视频"动作，避免让用户再点一次按钮。
+          if (pendingParseAfterLogin.value && url.value.trim()) {
+            pendingParseAfterLogin.value = false
+            // 给"登录成功"提示一个短暂展示时间，再隐藏面板继续解析。
+            setTimeout(() => {
+              showBiliAuthPanel.value = false
+              parseInfo()
+            }, 600)
+          }
         }
       } catch (err) {
         biliLoginMessage.value = err.message
@@ -1075,14 +1146,20 @@ const startBiliLogin = async () => {
         <button type="button">Twitter/X</button>
       </div>
 
-      <div v-if="showBiliAuthPanel" class="bili-auth-panel">
+      <div v-if="showBiliAuthPanel" ref="biliAuthPanelEl" class="bili-auth-panel">
+        <div v-if="!biliLoggedIn" class="bili-auth-prompt">
+          <h3>{{ t('home.biliAutoPromptTitle') }}</h3>
+          <p>{{ t('home.biliAutoPromptSubtitle') }}</p>
+        </div>
         <button class="bili-auth-trigger" type="button" :disabled="biliLoginLoading" @click="startBiliLogin">
           {{
             biliLoginLoading
               ? t('home.biliGeneratingQr')
               : biliLoggedIn
                 ? t('home.biliLoggedIn')
-                : t('home.biliLoginCta')
+                : biliQrImage
+                  ? t('home.biliRegenerateQr')
+                  : t('home.biliLoginCta')
           }}
         </button>
         <div v-if="biliQrImage || biliLoginMessage" class="bili-login-box">

@@ -645,8 +645,34 @@ fieldset legend,
 .bili-auth-panel {
   display: grid;
   justify-items: center;
-  gap: 12px;
-  margin: 8px auto 0;
+  gap: 14px;
+  margin: 16px auto 0;
+  padding: 18px 22px 20px;
+  width: min(440px, 100%);
+  background: linear-gradient(180deg, #f5f9ff 0%, #ffffff 100%);
+  border: 1px solid #dce8ff;
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(54, 124, 255, 0.1);
+}
+
+.bili-auth-prompt {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.bili-auth-prompt h3 {
+  margin: 0;
+  color: #1a2540;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.bili-auth-prompt p {
+  margin: 0;
+  color: #6b7791;
+  font-size: 13px;
 }
 
 .bili-auth-trigger {
