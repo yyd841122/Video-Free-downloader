@@ -839,6 +839,11 @@ fieldset legend,
   font-weight: 700;
 }
 
+/* YouTube cookies guide — shared figure layout (used on /help/youtube-cookies) */
+.help-page .help-visuals h2 {
+  margin-bottom: 14px;
+}
+
 .result-layout {
   display: grid;
   grid-template-columns: 1.08fr 0.92fr;

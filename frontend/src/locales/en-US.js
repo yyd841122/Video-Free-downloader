@@ -237,6 +237,16 @@ export default {
       ],
       step2Before: 'Step 2: Install the extension ',
       step2After: '.',
+      visualsTitle: 'Visual guide',
+      figure1Title: 'Figure 1: Export Netscape-format cookies.txt in the extension',
+      figure1Caption:
+        'On a YouTube page, open the extension and export cookies.txt in Netscape format (not JSON or other formats).',
+      figure1Alt: 'Get cookies.txt LOCALLY popup showing Netscape cookies.txt export',
+      figure2Title: 'Figure 2: Upload cookies.txt in SaveAny and continue parsing',
+      figure2Caption:
+        'In the YouTube verification prompt, click “I have cookies.txt”, upload the file or paste its contents, then click Continue parsing.',
+      figure2Alt: 'SaveAny YouTube cookie advanced panel with paste, upload, and continue buttons',
+      lightboxClose: 'Close enlarged image',
       stepsTitle: 'Steps',
       steps: [
         'Step 1: Sign in to YouTube in Chrome or Microsoft Edge.',

@@ -237,6 +237,16 @@ export default {
       ],
       step2Before: '第二步：安装扩展 ',
       step2After: '。',
+      visualsTitle: '图文步骤',
+      figure1Title: '图示 1：在扩展中导出 Netscape 格式 cookies.txt',
+      figure1Caption:
+        '在 YouTube 页面打开扩展后，选择导出 Netscape 格式的 cookies.txt 文件（不要选 JSON 等其他格式）。',
+      figure1Alt: 'Get cookies.txt LOCALLY 扩展弹窗，显示导出 Netscape 格式 cookies.txt 的选项',
+      figure2Title: '图示 2：回到 SaveAny 上传 cookies.txt 并继续解析',
+      figure2Caption:
+        '在 YouTube 验证提示中点击「我已有 cookies.txt」，上传刚导出的文件或粘贴内容，然后点击继续解析。',
+      figure2Alt: 'SaveAny 页面中 YouTube Cookie 高级选项：粘贴、上传与继续解析按钮',
+      lightboxClose: '关闭大图',
       stepsTitle: '操作步骤',
       steps: [
         '第一步：在 Chrome 或 Edge 浏览器中登录 YouTube。',
