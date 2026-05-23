@@ -6,7 +6,7 @@ const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').trim().replac
 export const API_BASE_URL =
   RAW_API_BASE_URL || (import.meta.env.PROD ? DEFAULT_PROD_API_BASE_URL : '')
 
-const resolveApiUrl = (url) => {
+export const resolveApiUrl = (url) => {
   if (!url) return url
   if (/^https?:\/\//i.test(url)) return url
   if (!API_BASE_URL) return url

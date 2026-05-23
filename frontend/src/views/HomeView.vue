@@ -11,6 +11,7 @@ import {
   getBiliQrStatus,
   getTask,
   getVideoInfo,
+  resolveApiUrl,
 } from '../api/client'
 import MindMapView from '../components/MindMapView.vue'
 import SubtitleUploadPanel from '../components/SubtitleUploadPanel.vue'
@@ -100,6 +101,18 @@ const batchProgressPercent = computed(() => {
   return Math.min(100, Math.round(sum / rows.length))
 })
 const platformWarnings = computed(() => info.value?.warnings || [])
+// 后端在 JSON 里返回的 thumbnail_proxy_url 是 "/api/proxy/<token>" 这种相对路径，
+// 浏览器原生 <img> 不走 fetch、不会自动拼上后端 API 域名，
+// 会按"当前页面域名"解析 → 命中 Cloudflare Pages SPA fallback → 拿到 index.html 当图片解析失败。
+// 因此这里显式 resolveApiUrl 把相对路径拼成后端绝对地址，再让 <img> 去取。
+// 非代理的 info.thumbnail 通常是平台 CDN 绝对地址（http(s)://...），resolveApiUrl 会原样返回。
+const coverImageUrl = computed(() => {
+  const proxy = info.value?.thumbnail_proxy_url
+  if (proxy) {
+    return resolveApiUrl(proxy)
+  }
+  return info.value?.thumbnail || ''
+})
 const heroCompact = computed(() => Boolean(info.value && url.value.trim()))
 const downloadProgress = computed(() => {
   if (task.value?.status === 'completed') {
@@ -627,7 +640,10 @@ const triggerFileDownload = (downloadUrl, taskId) => {
   }
   downloadedTaskIds.value.add(taskId)
   const link = document.createElement('a')
-  link.href = downloadUrl
+  // 后端返回 /api/files/<task_id> 是相对路径；浏览器原生 <a> 跳转不会走前端 fetch 包装，
+  // 会按当前页面域名解析 → 错落到 Cloudflare Pages（前端域）→ 拿到 SPA index.html。
+  // 必须显式拼上后端 API 域名，浏览器才会去 api-videodown.cozyguidehub.com 取真实文件。
+  link.href = resolveApiUrl(downloadUrl)
   link.download = ''
   link.rel = 'noreferrer'
   document.body.appendChild(link)
@@ -1179,8 +1195,8 @@ const startBiliLogin = async () => {
       <article class="video-summary">
         <div class="cover-wrap">
           <img
-            v-if="(info.thumbnail_proxy_url || info.thumbnail) && !coverLoadFailed"
-            :src="info.thumbnail_proxy_url || info.thumbnail"
+            v-if="coverImageUrl && !coverLoadFailed"
+            :src="coverImageUrl"
             :alt="t('home.coverAlt')"
             @error="coverLoadFailed = true"
           />

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
-import { fetchOrders, fetchQuota, fetchTaskHistory } from '../api/client'
+import { fetchOrders, fetchQuota, fetchTaskHistory, resolveApiUrl } from '../api/client'
 import { useUserStore } from '../stores/user'
 
 const { t } = useI18n()
@@ -100,7 +100,9 @@ const openHistoryItem = (item) => {
   }
   if (item.download_url) {
     const link = document.createElement('a')
-    link.href = item.download_url
+    // 同 HomeView.vue 的 triggerFileDownload：后端给的是 /api/files/<id> 相对路径，
+    // 必须显式 resolveApiUrl 拼上后端域名，否则 <a> 会落到前端域 → Cloudflare SPA 返回 index.html。
+    link.href = resolveApiUrl(item.download_url)
     link.download = ''
     link.rel = 'noopener'
     document.body.appendChild(link)
