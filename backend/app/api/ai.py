@@ -17,6 +17,7 @@ from app.services.quota_service import (
     check_concurrent_ai,
     consume_ai_quota,
 )
+from app.services.history_service import load_ai_task_from_disk, record_task_created
 from app.services.task_meta import write_task_meta
 
 router = APIRouter(prefix="/ai")
@@ -37,6 +38,12 @@ def create_ai_summary_task(
         raise HTTPException(status_code=402, detail=str(exc)) from exc
     task = ai_summary_task_store.create(str(payload.url), user_id=user.id)
     write_task_meta(task.task_id, user)
+    record_task_created(
+        user_id=user.id,
+        task_id=task.task_id,
+        kind="ai_summary",
+        url=str(payload.url),
+    )
     cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
     background_tasks.add_task(
         generate_ai_summary_task,
@@ -73,6 +80,13 @@ async def create_ai_summary_from_subtitle(
 
     task = ai_summary_task_store.create(url or file.filename or "uploaded-subtitle", user_id=user.id)
     write_task_meta(task.task_id, user)
+    record_task_created(
+        user_id=user.id,
+        task_id=task.task_id,
+        kind="ai_summary",
+        url=url or file.filename or "uploaded-subtitle",
+        title=title,
+    )
     task_dir = DOWNLOAD_DIR / task.task_id
     task_dir.mkdir(parents=True, exist_ok=True)
     subtitle_path = task_dir / f"uploaded{suffix}"
@@ -90,6 +104,11 @@ async def create_ai_summary_from_subtitle(
 @router.get("/summary/{task_id}", response_model=AiSummaryStatusResponse)
 def get_ai_summary_task(task_id: str) -> AiSummaryStatusResponse:
     task = ai_summary_task_store.get(task_id)
+    if not task:
+        restored = load_ai_task_from_disk(task_id)
+        if restored:
+            ai_summary_task_store.restore(restored)
+            task = restored
     if not task:
         raise HTTPException(status_code=404, detail="AI 总结任务不存在或已过期")
     return AiSummaryStatusResponse(
@@ -113,6 +132,11 @@ def chat_with_ai_summary(
     user: User = Depends(get_current_user),
 ) -> AiChatResponse:
     task = ai_summary_task_store.get(task_id)
+    if not task:
+        restored = load_ai_task_from_disk(task_id)
+        if restored:
+            ai_summary_task_store.restore(restored)
+            task = restored
     if not task:
         raise HTTPException(status_code=404, detail="AI 总结任务不存在或已过期")
     if task.user_id is not None and task.user_id != user.id:

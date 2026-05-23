@@ -1195,6 +1195,15 @@ def _try_asr_fallback(
         )
 
 
+def _sync_ai_history(task_id: str) -> None:
+    try:
+        from app.services.history_service import sync_ai_task
+
+        sync_ai_task(task_id)
+    except Exception as exc:
+        logger.warning("Failed to sync AI history for %s: %s", task_id, exc)
+
+
 def generate_ai_summary_task(
     task_id: str,
     url: str,
@@ -1253,6 +1262,8 @@ def generate_ai_summary_task(
             message="AI 总结失败",
             error=str(exc),
         )
+    finally:
+        _sync_ai_history(task_id)
 
 
 def generate_ai_summary_from_subtitle_task(
@@ -1323,3 +1334,5 @@ def generate_ai_summary_from_subtitle_task(
             message="AI 总结失败",
             error=str(exc),
         )
+    finally:
+        _sync_ai_history(task_id)

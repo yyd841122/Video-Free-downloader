@@ -922,6 +922,13 @@ def download_video_task(
     if cookie_file:
         cookie_file.unlink(missing_ok=True)
 
+    try:
+        from app.services.history_service import sync_download_task
+
+        sync_download_task(task_id)
+    except Exception as exc:
+        logger.warning("Failed to sync download history for %s: %s", task_id, exc)
+
 
 def extract_direct_link(
     url: str,

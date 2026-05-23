@@ -96,3 +96,25 @@ class AiUsage(Base):
     date_key: Mapped[str] = mapped_column(String(16), nullable=False)  # YYYY-MM-DD UTC
     count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     updated_at: Mapped[int] = mapped_column(BigInteger, default=_now_ts, onupdate=_now_ts, nullable=False)
+
+
+class UserTaskHistory(Base):
+    """登录用户的下载 / AI 总结任务记录（元数据；文件仍按目录保留策略清理）。"""
+
+    __tablename__ = "user_task_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    task_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # download | ai_summary
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    format: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="queued", nullable=False)
+    filename: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[int] = mapped_column(BigInteger, default=_now_ts, nullable=False)
+    updated_at: Mapped[int] = mapped_column(BigInteger, default=_now_ts, onupdate=_now_ts, nullable=False)
+
+
+Index("idx_history_user_created", UserTaskHistory.user_id, UserTaskHistory.created_at)

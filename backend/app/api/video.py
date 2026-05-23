@@ -15,6 +15,7 @@ from app.models.schemas import (
     VideoInfoRequest,
     VideoInfoResponse,
 )
+from app.services.history_service import record_task_created
 from app.services.bilibili_auth_store import bili_auth_store
 from app.services.quota_service import QuotaExceededError, check_concurrent_download, check_resolution_allowed
 from app.services.task_meta import write_task_meta
@@ -119,6 +120,14 @@ def _start_download_job(
         raise HTTPException(status_code=402, detail=str(exc)) from exc
     task = task_store.create(url, user_id=user.id if user else None)
     write_task_meta(task.task_id, user)
+    if user is not None:
+        record_task_created(
+            user_id=user.id,
+            task_id=task.task_id,
+            kind="download",
+            url=url,
+            format=format_choice,
+        )
     background_tasks.add_task(
         download_video_task,
         task.task_id,

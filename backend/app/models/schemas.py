@@ -209,6 +209,26 @@ class UserPublic(BaseModel):
     vip_expire_at: Optional[int] = None
 
 
+class TaskHistoryItem(BaseModel):
+    id: int
+    task_id: str
+    kind: Literal["download", "ai_summary"]
+    url: str
+    title: Optional[str] = None
+    format: Optional[str] = None
+    status: str
+    filename: Optional[str] = None
+    error: Optional[str] = None
+    file_available: bool = False
+    download_url: Optional[str] = None
+    created_at: int
+    updated_at: int
+
+
+class TaskHistoryListResponse(BaseModel):
+    items: list[TaskHistoryItem] = Field(default_factory=list)
+
+
 class QuotaPublic(BaseModel):
     is_vip: bool = False
     ai_used_today: int = 0
