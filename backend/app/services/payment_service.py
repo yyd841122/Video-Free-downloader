@@ -24,13 +24,47 @@ class PaymentError(Exception):
     pass
 
 
-def is_mock_mode() -> bool:
-    """没填 Stripe Secret 时强制 Mock，避免误用导致请求 https://api.stripe.com"""
+class PaymentConfigurationError(PaymentError):
+    """支付配置错误（生产环境强校验失败）。
 
-    if MOCK_PAYMENT:
+    错误信息**严禁**包含密钥、签名等敏感值，只能提示"哪个配置项缺失/不合法"。
+    """
+
+
+def is_mock_mode() -> bool:
+    """决定当前请求是否走 Mock 支付路径。
+
+    - APP_ENV=production：严禁任何 fallback
+        * MOCK_PAYMENT=true → PaymentConfigurationError
+        * STRIPE_SECRET_KEY 缺失 → PaymentConfigurationError
+      （不再静默回退到 Mock，避免误配 .env 导致用户白嫖 VIP）
+    - APP_ENV 非 production：保留旧行为
+        * MOCK_PAYMENT=true → mock
+        * STRIPE_SECRET_KEY 缺失 → 临时 mock（仅便于本地无网联调，会打 warning）
+
+    通过 `from app.core import config as _config` 动态读取，便于单元测试 monkey-patch。
+    """
+
+    from app.core import config as _config
+
+    if _config.APP_ENV == "production":
+        if _config.MOCK_PAYMENT:
+            raise PaymentConfigurationError(
+                "生产环境禁止 MOCK_PAYMENT=true，请将 backend/.env 中该项改为 false 后重启"
+            )
+        if not _config.STRIPE_SECRET_KEY:
+            raise PaymentConfigurationError(
+                "生产环境必须配置 STRIPE_SECRET_KEY；不允许在缺密钥时自动回退到 Mock 支付"
+            )
+        return False
+
+    if _config.MOCK_PAYMENT:
         return True
-    if not STRIPE_SECRET_KEY:
-        logger.warning("STRIPE_SECRET_KEY 未配置，自动切换为 MOCK 支付模式")
+    if not _config.STRIPE_SECRET_KEY:
+        logger.warning(
+            "STRIPE_SECRET_KEY 未配置（APP_ENV=%s），临时回退到 Mock 支付仅用于本地联调",
+            _config.APP_ENV,
+        )
         return True
     return False
 
@@ -195,8 +229,16 @@ def handle_stripe_event(db: Session, constructed: _ConstructedEvent) -> str:
 def _dispatch_event(db: Session, constructed: _ConstructedEvent) -> str:
     event_type = constructed.type
     obj = (constructed.event.get("data") or {}).get("object") or {}
-    if event_type == "checkout.session.completed":
+    # 同步卡支付走 checkout.session.completed；
+    # 异步支付（Alipay / WeChat Pay）首次回调时 payment_status="unpaid"，
+    # 真正的成功事件是 checkout.session.async_payment_succeeded，必须复用同一发券路径。
+    if event_type in (
+        "checkout.session.completed",
+        "checkout.session.async_payment_succeeded",
+    ):
         return _handle_checkout_session_completed(db, constructed, obj)
+    if event_type == "checkout.session.async_payment_failed":
+        return _handle_checkout_session_async_failed(db, obj)
     if event_type == "checkout.session.expired":
         return _handle_checkout_session_expired(db, obj)
     logger.info("unhandled stripe event: %s", event_type)
@@ -229,6 +271,17 @@ def _handle_checkout_session_completed(db: Session, constructed: _ConstructedEve
             f"订单 {order_no} 金额/币种与 Stripe 不一致：local={order.amount_cents}{order.currency} stripe={amount_total}{currency}"
         )
 
+    # 三次安全校验：metadata.plan_code 显式与本地 order.plan_code 一致；
+    # 防御场景包括 Stripe Dashboard 上人工误改 metadata 或上游构造时套餐串台。
+    # 仅在 metadata 中存在 plan_code 时启用，兼容历史订单/特殊渠道无 metadata 的情况。
+    metadata = session_obj.get("metadata") or {}
+    metadata_plan_code = metadata.get("plan_code")
+    if metadata_plan_code and metadata_plan_code != order.plan_code:
+        raise PaymentError(
+            f"订单 {order_no} 套餐(plan_code) 与 Stripe metadata 不一致："
+            f"local={order.plan_code} stripe={metadata_plan_code}"
+        )
+
     payment_intent_id = session_obj.get("payment_intent")
     try:
         changed = mark_order_paid(
@@ -253,6 +306,29 @@ def _handle_checkout_session_expired(db: Session, session_obj: dict) -> str:
         db.commit()
         return f"order {order_no} marked expired"
     return f"expired session for order {order_no} ignored"
+
+
+def _handle_checkout_session_async_failed(db: Session, session_obj: dict) -> str:
+    """异步支付（Alipay/WeChat Pay）失败：将 pending 订单标记为 canceled。
+
+    设计说明：当前 Order.status 枚举为 pending/paid/canceled/expired/refunded，
+    没有独立的 'failed' 状态；本轮不动 schema，因此复用 'canceled' 语义
+    （前端文案与 status 映射已覆盖 canceled）。后续若要区分"用户主动取消"
+    与"异步支付被银行/平台拒绝"，可在 P1 阶段加 failed 状态做精细化。
+    """
+
+    order_no = session_obj.get("client_reference_id") or (session_obj.get("metadata") or {}).get("order_no")
+    if not order_no:
+        return "async failed session without order_no"
+    order = get_order_by_no(db, order_no)
+    if not order:
+        return f"async failed: order {order_no} not found"
+    if order.status != "pending":
+        return f"async failed for order {order_no} ignored (status={order.status})"
+    order.status = "canceled"
+    db.add(order)
+    db.commit()
+    return f"order {order_no} marked canceled (async payment failed)"
 
 
 def confirm_mock_payment(db: Session, order_no: str, outcome: str) -> tuple[Order, str]:

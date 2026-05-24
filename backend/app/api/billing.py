@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.config import ENABLE_MOCK_PAY_ROUTE
 from app.core.deps import get_current_user
 from app.db.database import get_db
 from app.db.models import Order, User
@@ -118,23 +119,29 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)) -> dic
     return {"ok": True, "message": message}
 
 
-# ============== Mock 支付（仅 MOCK_PAYMENT=true 启用）==============
+# ============== Mock 支付（仅在 ENABLE_MOCK_PAY_ROUTE=true 时注册路由）==============
+#
+# 安全决策：把"路由是否注册"放在导入期判定，而不是运行时返回 403。
+# 这样一旦 APP_ENV=production（默认 ENABLE_MOCK_PAY_ROUTE=false），
+# OpenAPI 与 router 表里都不会出现 /api/billing/mock/pay/{order_no}，
+# 即使运维误改 MOCK_PAYMENT=true 也没有路由可以被调用。
 
+if ENABLE_MOCK_PAY_ROUTE:
 
-@router.post("/mock/pay/{order_no}", response_model=OrderPublic)
-def mock_pay(
-    order_no: str,
-    payload: MockPayRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> OrderPublic:
-    if not is_mock_mode():
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前未启用 Mock 支付模式")
-    order = get_order_by_no(db, order_no)
-    if not order or order.user_id != user.id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在")
-    try:
-        updated, _msg = confirm_mock_payment(db, order_no, payload.outcome)
-    except PaymentError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return _to_public_order(updated)
+    @router.post("/mock/pay/{order_no}", response_model=OrderPublic)
+    def mock_pay(
+        order_no: str,
+        payload: MockPayRequest,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> OrderPublic:
+        if not is_mock_mode():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前未启用 Mock 支付模式")
+        order = get_order_by_no(db, order_no)
+        if not order or order.user_id != user.id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在")
+        try:
+            updated, _msg = confirm_mock_payment(db, order_no, payload.outcome)
+        except PaymentError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        return _to_public_order(updated)

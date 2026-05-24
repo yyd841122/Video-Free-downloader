@@ -21,6 +21,23 @@ PROJECT_DIR = BASE_DIR.parent
 load_env_file(PROJECT_DIR / ".env")
 load_env_file(BASE_DIR / ".env")
 
+# --- Runtime environment ---
+# APP_ENV 决定一切"按环境裁剪"的默认值，例如 MOCK_PAYMENT、ENABLE_MOCK_PAY_ROUTE。
+# 取值：development / test / production；未配置时按最保守的非生产语义（development）走，
+# 但 main.py 的 lifespan 会对 APP_ENV=production 做硬校验。
+APP_ENV = (os.getenv("APP_ENV", "development").strip().lower()) or "development"
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value == "":
+        return default
+    return value in ("true", "1", "yes")
+
+
 DOWNLOAD_DIR = BASE_DIR / "downloads"
 DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -104,8 +121,18 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", str(60 * 24 * 7)))  # 默认 7 天
 
 # --- Billing & Payment ---
-# MOCK_PAYMENT=true 时不调用 Stripe API，启用纯本地模拟支付链路（无外网可用）
-MOCK_PAYMENT = os.getenv("MOCK_PAYMENT", "true").strip().lower() in ("true", "1", "yes")
+# 安全默认：
+#   - 非生产环境（development / test）默认 MOCK_PAYMENT=true，便于本地无网联调；
+#   - 生产环境（APP_ENV=production）默认 false，且 is_mock_mode()/lifespan 会硬拒绝 true。
+# 不再使用旧的"无脑 true"默认，以免运维误配让生产白嫖 VIP。
+MOCK_PAYMENT = _env_bool("MOCK_PAYMENT", APP_ENV != "production")
+
+# /api/billing/mock/pay/{order_no} 是否注册到 FastAPI 路由：
+#   - 非生产默认 true（开发与 staging 联调需要）
+#   - 生产默认 false（即使 MOCK_PAYMENT 被误开，也没有路由可用，从根上堵死白嫖）
+# main.py lifespan 在 APP_ENV=production 时会硬要求该值为 false。
+ENABLE_MOCK_PAY_ROUTE = _env_bool("ENABLE_MOCK_PAY_ROUTE", APP_ENV != "production")
+
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "").strip()
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
 # Checkout 展示的支付方式，逗号分隔。国内常用：card,alipay,wechat_pay

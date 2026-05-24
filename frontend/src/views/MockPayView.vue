@@ -16,6 +16,10 @@ const loading = ref(true)
 const error = ref('')
 const submitting = ref('')
 
+// stripeTip 是面向开发者的「如何切到真 Stripe」提示，正式用户不应看到。
+// 仅在 Vite dev build 中显示；生产构建（import.meta.env.PROD）一律隐藏。
+const isDevBuild = import.meta.env.DEV
+
 onMounted(async () => {
   if (!orderNo.value) {
     error.value = t('payment.orderMissing')
@@ -103,7 +107,7 @@ const pay = async (outcome) => {
         <RouterLink to="/pricing">{{ t('payment.reorder') }}</RouterLink>
       </div>
 
-      <p class="tip">{{ t('payment.stripeTip') }}</p>
+      <p v-if="isDevBuild" class="tip">{{ t('payment.stripeTip') }}</p>
     </div>
   </section>
 </template>
