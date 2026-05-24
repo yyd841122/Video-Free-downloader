@@ -40,6 +40,7 @@ export default {
     batchSubmitting: 'Submitting…',
     batchProgressAria: 'Batch download progress {percent}%',
     batchEmpty: 'Enter at least one valid URL',
+    invalidSharedUrl: 'No valid video link was found in the pasted content. Please check and try again.',
     batchVipOnly: 'Batch download requires VIP',
     tryLabel: 'Try:',
     quickBilibili: 'Bilibili',

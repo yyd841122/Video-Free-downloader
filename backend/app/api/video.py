@@ -32,10 +32,18 @@ from app.services.quota_service import QuotaExceededError, check_concurrent_down
 from app.services.task_meta import write_task_meta
 from app.services.task_store import task_store
 from app.services.ytdlp_service import download_video_task, extract_direct_link, extract_info
+from app.utils.url_normalize import UrlNormalizeError, normalize_video_url
 
 router = APIRouter(prefix="/video")
 info_semaphore = BoundedSemaphore(MAX_CONCURRENT_INFO_TASKS)
 logger = logging.getLogger(__name__)
+
+
+def _coerce_video_url(raw: str) -> str:
+    try:
+        return normalize_video_url(raw)
+    except UrlNormalizeError as exc:
+        raise HTTPException(status_code=400, detail="未能识别有效视频链接，请检查链接格式。") from exc
 
 ExtractStage = Literal["info", "download"]
 
@@ -209,19 +217,20 @@ def video_info(payload: VideoInfoRequest) -> VideoInfoResponse:
         raise HTTPException(status_code=429, detail="当前解析请求较多，请稍后再试")
     cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
     provided_cookies = bool((cookies or "").strip() or (payload.browser_cookies or "").strip())
+    normalized_url = _coerce_video_url(str(payload.url))
     try:
-        return extract_info(str(payload.url), cookies, payload.browser_cookies)
+        return extract_info(normalized_url, cookies, payload.browser_cookies)
     except Exception as exc:
         _log_extract_failure(
             endpoint="/api/video/info",
-            url=str(payload.url),
+            url=normalized_url,
             exc=exc,
             stage="info",
             provided_cookies=provided_cookies,
         )
         raise HTTPException(
             status_code=400,
-            detail=_humanize_extract_error(exc, stage="info", url=str(payload.url)),
+            detail=_humanize_extract_error(exc, stage="info", url=normalized_url),
         ) from exc
     finally:
         info_semaphore.release()
@@ -237,7 +246,7 @@ def create_download_task(
     return _start_download_job(
         background_tasks=background_tasks,
         user=user,
-        url=str(payload.url),
+        url=_coerce_video_url(str(payload.url)),
         format_choice=payload.format,
         with_subtitle=payload.with_subtitle,
         cookies=cookies,
@@ -255,6 +264,7 @@ def _start_download_job(
     cookies: str | None,
     browser_cookies: str | None,
 ) -> DownloadTaskResponse:
+    url = _coerce_video_url(url)
     try:
         check_concurrent_download(user)
         check_resolution_allowed(user, _guess_height_from_format(format_choice))
@@ -299,7 +309,12 @@ def create_batch_download_tasks(
     cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
     results: list[BatchDownloadTaskItem] = []
     for item_url in payload.urls:
-        url = str(item_url)
+        try:
+            url = _coerce_video_url(str(item_url))
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+            results.append(BatchDownloadTaskItem(url=str(item_url), status="failed", error=detail))
+            continue
         try:
             created = _start_download_job(
                 background_tasks=background_tasks,
@@ -329,10 +344,11 @@ def create_direct_link(
         check_resolution_allowed(user, _guess_height_from_format(payload.format))
     except QuotaExceededError as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc
+    normalized_url = _coerce_video_url(str(payload.url))
     try:
         cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
         info, token, selected_url = extract_direct_link(
-            str(payload.url),
+            normalized_url,
             payload.format,
             cookies,
             payload.browser_cookies,
@@ -341,14 +357,14 @@ def create_direct_link(
         provided_cookies = bool((cookies or "").strip() or (payload.browser_cookies or "").strip())
         _log_extract_failure(
             endpoint="/api/video/direct",
-            url=str(payload.url),
+            url=normalized_url,
             exc=exc,
             stage="download",
             provided_cookies=provided_cookies,
         )
         raise HTTPException(
             status_code=400,
-            detail=_humanize_extract_error(exc, stage="download", url=str(payload.url)),
+            detail=_humanize_extract_error(exc, stage="download", url=normalized_url),
         ) from exc
 
     base_url = str(request.base_url).rstrip("/")

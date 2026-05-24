@@ -19,8 +19,16 @@ from app.services.quota_service import (
 )
 from app.services.history_service import load_ai_task_from_disk, record_task_created
 from app.services.task_meta import write_task_meta
+from app.utils.url_normalize import UrlNormalizeError, normalize_video_url
 
 router = APIRouter(prefix="/ai")
+
+
+def _coerce_video_url(raw: str) -> str:
+    try:
+        return normalize_video_url(raw)
+    except UrlNormalizeError as exc:
+        raise HTTPException(status_code=400, detail="未能识别有效视频链接，请检查链接格式。") from exc
 ALLOWED_SUBTITLE_SUFFIXES = {".srt", ".vtt"}
 
 
@@ -36,19 +44,20 @@ def create_ai_summary_task(
         consume_ai_quota(db, user)
     except QuotaExceededError as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc
-    task = ai_summary_task_store.create(str(payload.url), user_id=user.id)
+    normalized_url = _coerce_video_url(str(payload.url))
+    task = ai_summary_task_store.create(normalized_url, user_id=user.id)
     write_task_meta(task.task_id, user)
     record_task_created(
         user_id=user.id,
         task_id=task.task_id,
         kind="ai_summary",
-        url=str(payload.url),
+        url=normalized_url,
     )
     cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
     background_tasks.add_task(
         generate_ai_summary_task,
         task.task_id,
-        str(payload.url),
+        normalized_url,
         cookies,
         payload.browser_cookies,
     )

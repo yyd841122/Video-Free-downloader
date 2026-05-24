@@ -40,6 +40,7 @@ export default {
     batchSubmitting: '提交中…',
     batchProgressAria: '批量下载总进度 {percent}%',
     batchEmpty: '请至少输入一个有效链接',
+    invalidSharedUrl: '未能从粘贴内容中识别有效视频链接，请检查后重试。',
     batchVipOnly: '批量下载为会员功能',
     tryLabel: '试试：',
     quickBilibili: 'Bilibili',

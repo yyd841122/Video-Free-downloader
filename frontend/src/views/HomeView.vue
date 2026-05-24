@@ -17,6 +17,7 @@ import MindMapView from '../components/MindMapView.vue'
 import SubtitleUploadPanel from '../components/SubtitleUploadPanel.vue'
 import VideoChatPanel from '../components/VideoChatPanel.vue'
 import { useUserStore } from '../stores/user'
+import { normalizeUserVideoInput } from '../utils/urlNormalize'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -618,6 +619,18 @@ const clearUrl = () => {
   urlInput.value?.focus()
 }
 
+const normalizeMainUrlField = () => {
+  const result = normalizeUserVideoInput(url.value)
+  if (!result.url) {
+    error.value = t('home.invalidSharedUrl')
+    return null
+  }
+  if (result.changed) {
+    url.value = result.url
+  }
+  return result.url
+}
+
 const isBiliUrl = (value) => /(^|\.)bilibili\.com|(^|\.)b23\.tv/i.test(String(value || ''))
 
 const isYouTubeUrl = (value) =>
@@ -771,7 +784,10 @@ const parseInfo = async () => {
   if (!canSubmit.value) {
     return
   }
-  const requestUrl = url.value.trim()
+  const requestUrl = normalizeMainUrlField()
+  if (!requestUrl) {
+    return
+  }
   const isBili = isBiliUrl(requestUrl)
   const isYouTube = isYouTubeUrl(requestUrl)
 
@@ -902,9 +918,14 @@ const startAiSummary = async () => {
   activeAiTab.value = 'summary'
   aiTask.value = null
   displayAiProgress.value = 0
+  const summaryUrl = normalizeMainUrlField()
+  if (!summaryUrl) {
+    aiLoading.value = false
+    return
+  }
   try {
     const created = await createAiSummaryTask({
-      url: url.value.trim(),
+      url: summaryUrl,
       cookies: cookiesText.value.trim() || null,
       browser_cookies: useBrowserCookies.value && !cookiesText.value.trim() ? browserCookies.value : null,
       auth_session_id: activeAuthSessionId.value || null,
@@ -1009,14 +1030,26 @@ const submitBatchDownload = async () => {
     router.push('/pricing')
     return
   }
-  const urls = batchUrlsText.value
+  const rawLines = batchUrlsText.value
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-  if (!urls.length) {
+  if (!rawLines.length) {
     error.value = t('home.batchEmpty')
     return
   }
+  const urls = []
+  for (const line of rawLines) {
+    const result = normalizeUserVideoInput(line)
+    if (result.url) {
+      urls.push(result.url)
+    }
+  }
+  if (!urls.length) {
+    error.value = t('home.invalidSharedUrl')
+    return
+  }
+  batchUrlsText.value = urls.join('\n')
   stopBatchPollers()
   batchLoading.value = true
   error.value = ''
@@ -1063,10 +1096,14 @@ const downloadSelected = async () => {
   }
   error.value = ''
   task.value = null
+  const downloadUrl = normalizeMainUrlField()
+  if (!downloadUrl) {
+    return
+  }
   downloading.value = true
   try {
     const created = await createDownloadTask({
-      url: url.value.trim(),
+      url: downloadUrl,
       format: selectedFormat.value,
       with_subtitle: false,
       cookies: cookiesText.value.trim() || null,
