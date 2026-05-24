@@ -52,23 +52,26 @@ export default {
     biliAutoPromptTitle: '解析 Bilibili 视频需要先扫码登录',
     biliAutoPromptSubtitle: '使用哔哩哔哩 App 扫码登录后，会自动开始解析视频',
     biliSessionExpiredHint: 'Bilibili 登录态已失效，请重新扫码登录',
-    youtubeAuthTitle: 'YouTube 当前需要登录验证',
+    youtubeAuthTitle: 'YouTube 解析可能受限',
     youtubeAuthSubtitle:
-      'YouTube 拒绝了服务器解析请求。网页端暂时无法自动完成 YouTube 登录验证。你可以稍后重试，或按照教程提供 cookies.txt 后继续解析。',
+      'YouTube 对服务器请求有额外验证，网页端无法保证每次都能解析成功。你可以稍后重试；若熟悉导出流程，可尝试提供 cookies.txt（不保证成功）。',
+    youtubeAuthDisclaimer:
+      'cookies.txt 仅可能提高部分视频的成功率，不能确保一定解析成功。即使提供 cookies，YouTube 仍可能因平台验证、地区限制、服务器 IP 风控或账号状态而拒绝解析。',
     youtubeAuthViewGuide: '查看教程',
-    youtubeAuthHaveCookies: '我已有 cookies.txt',
+    youtubeAuthHaveCookies: '可尝试 cookies.txt',
     youtubeAuthTryLater: '稍后重试',
-    youtubeAuthAdvancedHint: '如果你知道如何导出 cookies.txt，可以粘贴或上传后继续解析。',
+    youtubeAuthAdvancedHint:
+      '以下为可选尝试：上传或粘贴从 youtube.com 导出的 cookies.txt。即使提供，仍可能因平台验证、地区限制、服务器 IP 风控或账号状态而无法解析。',
     youtubeCookiePlaceholder: '粘贴 Netscape cookies.txt 内容，或浏览器复制的 Cookie 字符串…',
-    youtubeCookieUpload: '上传 cookies.txt',
-    youtubeCookieContinue: '继续解析',
+    youtubeCookieUpload: '上传 cookies.txt（可选）',
+    youtubeCookieContinue: '尝试继续解析',
     youtubeCookieCancel: '取消',
     youtubeCookieEmpty: '请先粘贴或上传 YouTube Cookies',
     youtubeCookieFileLoaded: '已读取文件：{name}',
     youtubeCookieFileFailed: '无法读取该文件，请重试',
     youtubeCookiePick: '选择 cookies.txt',
     youtubeInfoParseFailed:
-      'YouTube 仍然拒绝了服务器解析请求。请确认 cookies.txt 是从 youtube.com 页面导出的，并且账号仍处于登录状态。若仍失败，可能是 YouTube 平台验证或地区限制导致，请稍后重试。',
+      'YouTube 对服务器请求有额外验证。即使提供 cookies.txt，也可能无法解析。你可以稍后重试，或先使用 Bilibili、抖音、X 等平台。',
     resultAria: '解析结果',
     coverAlt: '视频封面',
     untitledVideo: '未命名视频',
@@ -212,12 +215,15 @@ export default {
   },
   help: {
     youtubeCookies: {
-      title: '如何使用 YouTube Cookies 解析视频',
+      title: '如何尝试使用 YouTube Cookies 解析视频',
       backHome: '← 返回首页',
       backToApp: '返回下载页',
-      whyTitle: '为什么需要 cookies.txt',
+      whyTitle: '为什么可能需要 cookies.txt',
       whyBody:
-        '部分 YouTube 视频会要求登录验证。由于网页端无法直接读取你在 YouTube 的登录状态，你可以手动导出 cookies.txt，并在解析时上传或粘贴。',
+        '部分 YouTube 视频会要求登录验证。由于网页端无法直接读取你在 YouTube 的登录状态，你可以尝试手动导出 cookies.txt 并在解析时上传或粘贴。cookies.txt 可以提高成功率，但不能保证一定成功。',
+      expectationsTitle: '成功率说明',
+      expectationsBody:
+        '即使从 youtube.com 正确导出 cookies.txt，SaveAny 仍可能因 YouTube 平台验证、地区限制、服务器 IP 风控或账号状态而拒绝解析。请勿反复上传 cookies 期待必然成功；你可以稍后重试，或先使用 Bilibili、抖音、X 等平台。',
       toolTitle: '推荐工具',
       toolName: 'Get cookies.txt LOCALLY',
       toolStoreUrl:
@@ -246,7 +252,7 @@ export default {
       figure1Alt: 'Get cookies.txt LOCALLY 扩展弹窗，显示导出 Netscape 格式 cookies.txt 的选项',
       figure2Title: '图示 2：回到 SaveAny 上传 cookies.txt 并继续解析',
       figure2Caption:
-        '在 YouTube 验证提示中点击「我已有 cookies.txt」，上传刚导出的文件或粘贴内容，然后点击继续解析。',
+        '在 YouTube 提示中点击「可尝试 cookies.txt」，上传刚导出的文件或粘贴内容，然后点击尝试继续解析（不保证成功）。',
       figure2Alt: 'SaveAny 页面中 YouTube Cookie 高级选项：粘贴、上传与继续解析按钮',
       lightboxClose: '关闭大图',
       stepsTitle: '操作步骤',
@@ -256,14 +262,15 @@ export default {
         '第四步：点击浏览器右上角扩展图标，确认弹窗顶部显示的是 https://www.youtube.com/，然后点击蓝色 Export 按钮。',
         '第五步：选择导出 Netscape 格式 cookies.txt。',
         '第六步：回到 SaveAny 的 YouTube 验证提示。',
-        '第七步：点击「我已有 cookies.txt」。',
+        '第七步：点击「可尝试 cookies.txt」。',
         '第八步：上传 cookies.txt 或粘贴内容。',
-        '第九步：点击继续解析。',
+        '第九步：点击尝试继续解析（不保证成功）。',
       ],
       warningTitle: '请注意',
       warningNoPassword: '不要输入 YouTube / Google 账号密码。',
       successTitle: '成功率说明',
-      successBody: '使用 cookies.txt 可以提高成功率，但不保证所有 YouTube 视频都能解析。',
+      successBody:
+        '使用 cookies.txt 可以提高部分视频的成功率，但不能保证所有 YouTube 视频都能解析。即使提供 cookies，仍可能因平台验证、地区限制、服务器 IP 风控或账号状态而失败。',
     },
   },
   footer: {

@@ -634,8 +634,17 @@ const looksLikeBiliAuthError = (message) =>
 const looksLikeMisleadingYouTubeClarityError = (message) =>
   /当前清晰度不可用|清晰度不可用|resolution is unavailable/i.test(String(message || ''))
 
-const normalizeYouTubeInfoError = (message) => {
-  if (looksLikeMisleadingYouTubeClarityError(message)) {
+const looksLikeYouTubeServerBlockedError = (message) => {
+  const text = String(message || '')
+  return (
+    /仍然拒绝.*服务器解析|对服务器请求有额外验证|即使提供 cookies/i.test(text) ||
+    /still blocked the server|extra verification to server|even with cookies\.txt/i.test(text) ||
+    looksLikeMisleadingYouTubeClarityError(text)
+  )
+}
+
+const resolveYouTubeInfoError = (message) => {
+  if (looksLikeYouTubeServerBlockedError(message) || looksLikeMisleadingYouTubeClarityError(message)) {
     return t('home.youtubeInfoParseFailed')
   }
   return message
@@ -809,18 +818,28 @@ const parseInfo = async () => {
       await startBiliLogin()
       return
     }
-    if (isYouTube && looksLikeYouTubeAuthError(err?.message)) {
-      showYouTubeAuthPanel.value = true
-      pendingParseAfterYouTubeAuth.value = true
-      youtubeCookieAdvancedOpen.value = false
-      error.value = ''
-      if (!youtubeCookiesDraft.value.trim() && cookiesText.value.trim()) {
-        youtubeCookiesDraft.value = cookiesText.value.trim()
+    if (isYouTube) {
+      const hadCookies = Boolean(cookiesText.value.trim())
+      const friendlyMessage = resolveYouTubeInfoError(err?.message)
+      if (!hadCookies && looksLikeYouTubeAuthError(err?.message)) {
+        showYouTubeAuthPanel.value = true
+        pendingParseAfterYouTubeAuth.value = false
+        youtubeCookieAdvancedOpen.value = false
+        error.value = ''
+        if (!youtubeCookiesDraft.value.trim() && cookiesText.value.trim()) {
+          youtubeCookiesDraft.value = cookiesText.value.trim()
+        }
+        focusYouTubeAuthPanel()
+        return
       }
-      focusYouTubeAuthPanel()
+      showYouTubeAuthPanel.value = false
+      pendingParseAfterYouTubeAuth.value = false
+      youtubeCookieAdvancedOpen.value = false
+      youtubeAuthMessage.value = ''
+      error.value = friendlyMessage
       return
     }
-    error.value = isYouTube ? normalizeYouTubeInfoError(err.message) : err.message
+    error.value = err.message
   } finally {
     loading.value = false
   }
@@ -1314,6 +1333,7 @@ const startBiliLogin = async () => {
         <div class="youtube-auth-prompt">
           <h3>{{ t('home.youtubeAuthTitle') }}</h3>
           <p>{{ t('home.youtubeAuthSubtitle') }}</p>
+          <p class="youtube-auth-hint">{{ t('home.youtubeAuthDisclaimer') }}</p>
         </div>
 
         <div v-if="!youtubeCookieAdvancedOpen" class="youtube-auth-simple">

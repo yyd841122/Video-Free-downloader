@@ -66,6 +66,11 @@ const closeLightbox = () => {
       <p>{{ t('help.youtubeCookies.whyBody') }}</p>
     </section>
 
+    <section class="help-section help-callout">
+      <h2>{{ t('help.youtubeCookies.expectationsTitle') }}</h2>
+      <p>{{ t('help.youtubeCookies.expectationsBody') }}</p>
+    </section>
+
     <section class="help-section help-tool">
       <h2>{{ t('help.youtubeCookies.toolTitle') }}</h2>
       <p class="help-tool-name">

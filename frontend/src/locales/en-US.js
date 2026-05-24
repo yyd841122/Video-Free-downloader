@@ -52,23 +52,26 @@ export default {
     biliAutoPromptTitle: 'Bilibili videos require login first',
     biliAutoPromptSubtitle: 'Scan with the Bilibili app — parsing will resume automatically once you are logged in.',
     biliSessionExpiredHint: 'Your Bilibili login has expired. Please scan again to continue.',
-    youtubeAuthTitle: 'YouTube sign-in verification required',
+    youtubeAuthTitle: 'YouTube parsing may be limited',
     youtubeAuthSubtitle:
-      'YouTube blocked the server request. The web app cannot automatically access your YouTube sign-in state. You can try again later or follow the guide to provide cookies.txt.',
+      'YouTube applies extra verification to server requests. The web app cannot guarantee every parse will succeed. You can try again later, or optionally provide cookies.txt (not guaranteed to work).',
+    youtubeAuthDisclaimer:
+      'cookies.txt may improve success for some videos but does not guarantee parsing. Even with cookies, YouTube may still block requests due to platform verification, regional limits, server IP restrictions, or account status.',
     youtubeAuthViewGuide: 'View guide',
-    youtubeAuthHaveCookies: 'I have cookies.txt',
+    youtubeAuthHaveCookies: 'Try cookies.txt (optional)',
     youtubeAuthTryLater: 'Try again later',
-    youtubeAuthAdvancedHint: 'If you know how to export cookies.txt, you can paste or upload it to continue parsing.',
+    youtubeAuthAdvancedHint:
+      'Optional attempt: upload or paste cookies.txt exported from youtube.com. Even with cookies, parsing may still fail due to platform verification, regional limits, server IP restrictions, or account status.',
     youtubeCookiePlaceholder: 'Paste Netscape cookies.txt content or a Cookie header string…',
-    youtubeCookieUpload: 'Upload cookies.txt',
-    youtubeCookieContinue: 'Continue parsing',
+    youtubeCookieUpload: 'Upload cookies.txt (optional)',
+    youtubeCookieContinue: 'Try parsing again',
     youtubeCookieCancel: 'Cancel',
     youtubeCookieEmpty: 'Please paste or upload YouTube cookies first',
     youtubeCookieFileLoaded: 'Loaded file: {name}',
     youtubeCookieFileFailed: 'Could not read that file. Please try again.',
     youtubeCookiePick: 'Choose cookies.txt',
     youtubeInfoParseFailed:
-      'YouTube still blocked the server request. Please make sure your cookies.txt was exported from youtube.com and your account is still signed in. If it still fails, YouTube verification or regional restrictions may be blocking the request.',
+      'YouTube applies extra verification to server requests. Even with cookies.txt, parsing may still fail. Try again later, or use Bilibili, Douyin, X, and other platforms first.',
     resultAria: 'Parse result',
     coverAlt: 'Video thumbnail',
     untitledVideo: 'Untitled video',
@@ -212,12 +215,15 @@ export default {
   },
   help: {
     youtubeCookies: {
-      title: 'How to use YouTube cookies to parse videos',
+      title: 'How to try YouTube cookies for parsing',
       backHome: '← Back to home',
       backToApp: 'Back to downloader',
-      whyTitle: 'Why cookies.txt is needed',
+      whyTitle: 'Why cookies.txt may be needed',
       whyBody:
-        'Some YouTube videos require sign-in verification. The web app cannot read your YouTube login state directly, so you can export cookies.txt manually and upload or paste it when parsing.',
+        'Some YouTube videos require sign-in verification. The web app cannot read your YouTube login state directly, so you can try exporting cookies.txt and uploading or pasting it when parsing. cookies.txt may improve success but does not guarantee it.',
+      expectationsTitle: 'Success rate expectations',
+      expectationsBody:
+        'Even with a correctly exported youtube.com cookies.txt, SaveAny may still be blocked by YouTube platform verification, regional limits, server IP restrictions, or account status. Do not keep re-uploading cookies expecting a guaranteed success—try again later, or use Bilibili, Douyin, X, and other platforms first.',
       toolTitle: 'Recommended extension',
       toolName: 'Get cookies.txt LOCALLY',
       toolStoreUrl:
@@ -246,7 +252,7 @@ export default {
       figure1Alt: 'Get cookies.txt LOCALLY popup showing Netscape cookies.txt export',
       figure2Title: 'Figure 2: Upload cookies.txt in SaveAny and continue parsing',
       figure2Caption:
-        'In the YouTube verification prompt, click “I have cookies.txt”, upload the file or paste its contents, then click Continue parsing.',
+        'In the YouTube prompt, click “Try cookies.txt (optional)”, upload the file or paste its contents, then click Try parsing again (not guaranteed).',
       figure2Alt: 'SaveAny YouTube cookie advanced panel with paste, upload, and continue buttons',
       lightboxClose: 'Close enlarged image',
       stepsTitle: 'Steps',
@@ -256,14 +262,15 @@ export default {
         'Step 4: Click the extensions icon in the browser toolbar, confirm the popup header shows https://www.youtube.com/, then click the blue Export button.',
         'Step 5: Choose to export Netscape-format cookies.txt.',
         'Step 6: Return to SaveAny’s YouTube verification prompt.',
-        'Step 7: Click “I have cookies.txt”.',
+        'Step 7: Click “Try cookies.txt (optional)”.',
         'Step 8: Upload cookies.txt or paste its contents.',
-        'Step 9: Click Continue parsing.',
+        'Step 9: Click Try parsing again (not guaranteed).',
       ],
       warningTitle: 'Important',
       warningNoPassword: 'Do not enter your YouTube / Google account password here.',
       successTitle: 'Success rate',
-      successBody: 'Using cookies.txt can improve success rates, but we cannot guarantee every YouTube video will parse.',
+      successBody:
+        'Using cookies.txt may improve success for some videos, but we cannot guarantee every YouTube video will parse. Even with cookies, requests may still fail due to platform verification, regional limits, server IP restrictions, or account status.',
     },
   },
   footer: {
