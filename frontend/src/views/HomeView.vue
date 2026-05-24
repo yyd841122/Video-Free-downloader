@@ -55,6 +55,8 @@ const loading = ref(false)
 const downloading = ref(false)
 const error = ref('')
 const loginActionVisible = ref(false)
+const inlineHints = ref({ format: '', download: '', ai: '' })
+const inlineHintLogin = ref({ format: false, download: false, ai: false })
 const info = ref(null)
 const task = ref(null)
 const pollingTimer = ref(null)
@@ -635,6 +637,30 @@ const setLoginRequiredError = () => {
   error.value = t('home.loginRequiredFeature')
 }
 
+const clearInlineHints = () => {
+  inlineHints.value = { format: '', download: '', ai: '' }
+  inlineHintLogin.value = { format: false, download: false, ai: false }
+}
+
+const looksLikeVipResolutionError = (message) =>
+  /会员专享|升级会员|requires VIP|VIP only|payment required|402/i.test(String(message || ''))
+
+const setAiLoginInlineHint = () => {
+  inlineHints.value.ai = t('home.aiLoginInline')
+  inlineHintLogin.value.ai = true
+}
+
+const setDownloadLoginInlineHint = () => {
+  inlineHints.value.download = t('home.downloadLoginInline')
+  inlineHintLogin.value.download = true
+}
+
+const setFormatVipInlineHint = () => {
+  inlineHints.value.format = t('home.formatVipInline')
+  inlineHintLogin.value.format = false
+  inlineHints.value.download = t('home.formatVipInline')
+}
+
 const resolveUserFacingError = (err) => {
   const message = err?.message || ''
   if (looksLikeAppLoginRequiredError(message)) {
@@ -645,17 +671,37 @@ const resolveUserFacingError = (err) => {
   return message
 }
 
-const requireAppLogin = () => {
+const requireAppLogin = (scope = 'global') => {
   if (userStore.isLoggedIn) {
     return true
+  }
+  if (scope === 'ai') {
+    setAiLoginInlineHint()
+    return false
+  }
+  if (scope === 'download') {
+    setDownloadLoginInlineHint()
+    return false
   }
   setLoginRequiredError()
   return false
 }
 
+const selectFormat = (format) => {
+  selectedFormat.value = format.id
+  inlineHints.value.format = ''
+  inlineHints.value.download = ''
+  inlineHintLogin.value.format = false
+  inlineHintLogin.value.download = false
+  if (format.vipOnly && !userStore.isVip) {
+    inlineHints.value.format = t('home.formatVipInline')
+  }
+}
+
 const resetSingleParseState = () => {
   error.value = ''
   loginActionVisible.value = false
+  clearInlineHints()
   loading.value = false
   resetResult()
 }
@@ -909,6 +955,7 @@ const parseInfo = async () => {
   showBiliAuthPanel.value = isBili
   error.value = ''
   loginActionVisible.value = false
+  clearInlineHints()
   resetResult()
   loading.value = true
   try {
@@ -1009,13 +1056,15 @@ const pollAiSummaryTask = (taskId) => {
 }
 
 const startAiSummary = async () => {
-  if (!requireAppLogin()) {
+  if (!requireAppLogin('ai')) {
     return
   }
   if (!info.value || aiLoading.value || aiTaskInProgress.value) {
     return
   }
   error.value = ''
+  inlineHints.value.ai = ''
+  inlineHintLogin.value.ai = false
   aiLoading.value = true
   transcriptExpanded.value = false
   activeAiTab.value = 'summary'
@@ -1038,7 +1087,12 @@ const startAiSummary = async () => {
     startAiProgressSmoothing()
     pollAiSummaryTask(created.task_id)
   } catch (err) {
-    error.value = resolveUserFacingError(err)
+    const message = err?.message || ''
+    if (looksLikeAppLoginRequiredError(message)) {
+      setAiLoginInlineHint()
+    } else {
+      error.value = message
+    }
   } finally {
     aiLoading.value = false
   }
@@ -1192,11 +1246,12 @@ const downloadSelected = async () => {
   }
   const picked = formatChoices.value.find((item) => item.id === selectedFormat.value)
   if (picked?.vipOnly) {
-    error.value = t('home.format.vipResolution', { resolution: picked.resolution })
-    router.push('/pricing')
+    setFormatVipInlineHint()
     return
   }
   error.value = ''
+  inlineHints.value.download = ''
+  inlineHintLogin.value.download = false
   task.value = null
   const downloadUrl = normalizeMainUrlField()
   if (!downloadUrl) {
@@ -1215,7 +1270,14 @@ const downloadSelected = async () => {
     task.value = created
     pollTask(created.task_id)
   } catch (err) {
-    error.value = resolveUserFacingError(err)
+    const message = err?.message || ''
+    if (looksLikeAppLoginRequiredError(message)) {
+      setDownloadLoginInlineHint()
+    } else if (looksLikeVipResolutionError(message)) {
+      setFormatVipInlineHint()
+    } else {
+      error.value = message
+    }
   } finally {
     downloading.value = false
   }
@@ -1597,7 +1659,7 @@ const startBiliLogin = async () => {
             :class="{ active: selectedFormat === format.id, 'vip-only': format.vipOnly }"
             class="format-card"
             type="button"
-            @click="selectedFormat = format.id"
+            @click="selectFormat(format)"
           >
             <span class="format-icon">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1614,6 +1676,12 @@ const startBiliLogin = async () => {
             </span>
           </button>
         </div>
+        <p v-if="inlineHints.format" class="inline-action-hint format-inline-hint" role="status">
+          {{ inlineHints.format }}
+          <span class="inline-action-links">
+            <RouterLink to="/pricing">{{ t('nav.upgradeVip') }}</RouterLink>
+          </span>
+        </p>
       </div>
 
       <div class="download-footer">
@@ -1664,6 +1732,25 @@ const startBiliLogin = async () => {
           }}
         </span>
       </div>
+      <p v-if="inlineHints.download" class="inline-action-hint download-inline-hint" role="status">
+        {{ inlineHints.download }}
+        <span v-if="inlineHintLogin.download" class="inline-action-links">
+          <RouterLink :to="{ name: 'login', query: { redirect: '/' } }">{{ t('nav.login') }}</RouterLink>
+          <span aria-hidden="true"> · </span>
+          <RouterLink to="/register">{{ t('nav.register') }}</RouterLink>
+        </span>
+        <span v-else class="inline-action-links">
+          <RouterLink to="/pricing">{{ t('nav.upgradeVip') }}</RouterLink>
+        </span>
+      </p>
+      <p v-if="inlineHints.ai" class="inline-action-hint ai-inline-hint" role="status">
+        {{ inlineHints.ai }}
+        <span class="inline-action-links">
+          <RouterLink :to="{ name: 'login', query: { redirect: '/' } }">{{ t('nav.login') }}</RouterLink>
+          <span aria-hidden="true"> · </span>
+          <RouterLink to="/register">{{ t('nav.register') }}</RouterLink>
+        </span>
+      </p>
       <p v-if="showDownloadProgressHint" class="download-progress-hint">{{ t('home.downloadProgressHint') }}</p>
       <p class="download-legal-hint">
         {{ t('home.downloadLegalHint') }}

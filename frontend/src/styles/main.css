@@ -691,6 +691,38 @@ fieldset legend,
   line-height: 1.5;
 }
 
+.inline-action-hint {
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #8a3b12;
+  background: #fff8f0;
+  border: 1px solid #ffe2c2;
+  border-radius: 14px;
+}
+
+.format-inline-hint {
+  margin-top: 12px;
+}
+
+.download-inline-hint,
+.ai-inline-hint {
+  max-width: 100%;
+}
+
+.inline-action-links {
+  display: inline-block;
+  margin-left: 8px;
+  font-weight: 700;
+}
+
+.inline-action-links a {
+  color: #2268f0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .fine-print {
   margin: 10px 0 0;
   color: #a2adbb;
