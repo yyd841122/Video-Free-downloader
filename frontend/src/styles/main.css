@@ -635,6 +635,25 @@ fieldset legend,
   border-radius: 18px;
 }
 
+.alert-login-actions {
+  display: inline-block;
+  margin-left: 8px;
+  font-weight: 700;
+}
+
+.alert-login-actions a {
+  color: #2268f0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.download-progress-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #67758a;
+  line-height: 1.5;
+}
+
 .fine-print {
   margin: 10px 0 0;
   color: #a2adbb;

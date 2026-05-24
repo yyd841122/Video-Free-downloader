@@ -41,6 +41,7 @@ export default {
     batchProgressAria: 'Batch download progress {percent}%',
     batchEmpty: 'Enter at least one valid URL',
     invalidSharedUrl: 'No valid video link was found in the pasted content. Please check and try again.',
+    loginRequiredFeature: 'Please log in or sign up before using this feature.',
     batchVipOnly: 'Batch download requires VIP',
     tryLabel: 'Try:',
     quickBilibili: 'Bilibili',
@@ -84,6 +85,10 @@ export default {
     selectFormat: 'Choose quality & format',
     vipTag: 'VIP',
     downloadNow: 'Download now',
+    downloadServerProcessing: 'Processing on server {percent}%',
+    downloadProgressHint:
+      'The server is downloading and merging the video. Your browser save dialog will open when it is ready.',
+    downloadReadyOpening: 'Download is ready. Opening the save dialog…',
     aiSummary: 'AI summary',
     aiResummary: 'Summarize again',
     selectedFormat: 'Selected: {title}',

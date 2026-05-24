@@ -53,6 +53,7 @@ const selectedFormat = ref('best')
 const loading = ref(false)
 const downloading = ref(false)
 const error = ref('')
+const loginActionVisible = ref(false)
 const info = ref(null)
 const task = ref(null)
 const pollingTimer = ref(null)
@@ -133,6 +134,13 @@ const downloadProgress = computed(() => {
 const showDownloadProgress = computed(() =>
   ['queued', 'starting', 'downloading', 'processing', 'completed'].includes(task.value?.status),
 )
+const showDownloadProgressHint = computed(() => downloading.value || taskInProgress.value)
+const downloadButtonLabel = computed(() => {
+  if (downloading.value || taskInProgress.value) {
+    return t('home.downloadServerProcessing', { percent: downloadProgress.value })
+  }
+  return t('home.downloadNow')
+})
 const aiProgress = computed(() => {
   if (aiTask.value?.status === 'completed' || aiTask.value?.status === 'no_transcript') {
     return 100
@@ -585,7 +593,6 @@ const formatChoices = computed(() => {
 })
 
 const resetResult = () => {
-  error.value = ''
   info.value = null
   task.value = null
   aiTask.value = null
@@ -594,6 +601,7 @@ const resetResult = () => {
   transcriptExpanded.value = false
   activeAiTab.value = 'summary'
   coverLoadFailed.value = false
+  downloading.value = false
   if (pollingTimer.value) {
     window.clearInterval(pollingTimer.value)
     pollingTimer.value = null
@@ -606,8 +614,54 @@ const resetResult = () => {
   displayAiProgress.value = 0
 }
 
+const looksLikeAppLoginRequiredError = (message) => {
+  const text = String(message || '')
+  if (!text) {
+    return false
+  }
+  if (/bilibili|哔哩|youtube|cookies\.txt|扫码登录|sign in to confirm|not a bot/i.test(text)) {
+    return false
+  }
+  return (
+    /未登录或登录已失效|登录已过期|无效的登录态|账号不存在或已被删除/.test(text) ||
+    /请先注册或登录|AI 视频总结需要登录|需要登录后使用/.test(text) ||
+    /please log in or sign up before using this feature/i.test(text)
+  )
+}
+
+const setLoginRequiredError = () => {
+  loginActionVisible.value = true
+  error.value = t('home.loginRequiredFeature')
+}
+
+const resolveUserFacingError = (err) => {
+  const message = err?.message || ''
+  if (looksLikeAppLoginRequiredError(message)) {
+    setLoginRequiredError()
+    return error.value
+  }
+  loginActionVisible.value = false
+  return message
+}
+
+const requireAppLogin = () => {
+  if (userStore.isLoggedIn) {
+    return true
+  }
+  setLoginRequiredError()
+  return false
+}
+
+const resetSingleParseState = () => {
+  error.value = ''
+  loginActionVisible.value = false
+  loading.value = false
+  resetResult()
+}
+
 const clearUrl = () => {
   url.value = ''
+  resetSingleParseState()
   showBiliAuthPanel.value = false
   pendingParseAfterLogin.value = false
   showYouTubeAuthPanel.value = false
@@ -805,6 +859,8 @@ const parseInfo = async () => {
   }
 
   showBiliAuthPanel.value = isBili
+  error.value = ''
+  loginActionVisible.value = false
   resetResult()
   loading.value = true
   try {
@@ -855,7 +911,7 @@ const parseInfo = async () => {
       error.value = friendlyMessage
       return
     }
-    error.value = err.message
+    error.value = resolveUserFacingError(err)
   } finally {
     loading.value = false
   }
@@ -876,7 +932,7 @@ const pollTask = (taskId) => {
         }
       }
     } catch (err) {
-      error.value = err.message
+      error.value = resolveUserFacingError(err)
       window.clearInterval(pollingTimer.value)
       pollingTimer.value = null
     }
@@ -897,7 +953,7 @@ const pollAiSummaryTask = (taskId) => {
         stopAiProgressSmoothing()
       }
     } catch (err) {
-      error.value = err.message
+      error.value = resolveUserFacingError(err)
       window.clearInterval(aiPollingTimer.value)
       aiPollingTimer.value = null
     }
@@ -905,8 +961,7 @@ const pollAiSummaryTask = (taskId) => {
 }
 
 const startAiSummary = async () => {
-  if (!userStore.isLoggedIn) {
-    router.push({ name: 'login', query: { redirect: '/' } })
+  if (!requireAppLogin()) {
     return
   }
   if (!info.value || aiLoading.value || aiTaskInProgress.value) {
@@ -935,7 +990,7 @@ const startAiSummary = async () => {
     startAiProgressSmoothing()
     pollAiSummaryTask(created.task_id)
   } catch (err) {
-    error.value = err.message
+    error.value = resolveUserFacingError(err)
   } finally {
     aiLoading.value = false
   }
@@ -1021,8 +1076,7 @@ const pollBatchTask = (row) => {
 }
 
 const submitBatchDownload = async () => {
-  if (!userStore.isLoggedIn) {
-    router.push({ name: 'login', query: { redirect: '/' } })
+  if (!requireAppLogin()) {
     return
   }
   if (!userStore.isVip) {
@@ -1078,7 +1132,7 @@ const submitBatchDownload = async () => {
       }
     }
   } catch (err) {
-    error.value = err.message
+    error.value = resolveUserFacingError(err)
   } finally {
     batchLoading.value = false
   }
@@ -1113,7 +1167,7 @@ const downloadSelected = async () => {
     task.value = created
     pollTask(created.task_id)
   } catch (err) {
-    error.value = err.message
+    error.value = resolveUserFacingError(err)
   } finally {
     downloading.value = false
   }
@@ -1142,7 +1196,7 @@ const openAiTaskFromQuery = async (taskId) => {
     }
     pollAiSummaryTask(taskId)
   } catch (err) {
-    error.value = err.message
+    error.value = resolveUserFacingError(err)
   } finally {
     aiLoading.value = false
   }
@@ -1285,7 +1339,7 @@ const startBiliLogin = async () => {
             <circle cx="11" cy="11" r="7" />
             <path d="m16.5 16.5 4 4" />
           </svg>
-          <template v-if="taskInProgress">{{ downloadProgress }}%</template>
+          <template v-if="taskInProgress">{{ t('home.downloadServerProcessing', { percent: downloadProgress }) }}</template>
           <template v-else-if="loading"><span class="spin-loader" aria-hidden="true"></span></template>
           <template v-else>{{ t('home.parseVideo') }}</template>
         </button>
@@ -1434,7 +1488,14 @@ const startBiliLogin = async () => {
     </section>
   </section>
 
-  <p v-if="error" class="alert" role="alert">{{ error }}</p>
+  <p v-if="error" class="alert" role="alert">
+    {{ error }}
+    <span v-if="loginActionVisible" class="alert-login-actions">
+      <RouterLink :to="{ name: 'login', query: { redirect: '/' } }">{{ t('nav.login') }}</RouterLink>
+      <span aria-hidden="true"> · </span>
+      <RouterLink to="/register">{{ t('nav.register') }}</RouterLink>
+    </span>
+  </p>
 
   <section v-if="info" class="result-panel" :aria-label="t('home.resultAria')">
     <div class="download-card">
@@ -1509,7 +1570,7 @@ const startBiliLogin = async () => {
             <path d="m7 10 5 5 5-5" />
             <path d="M5 20h14" />
           </svg>
-          {{ downloading || taskInProgress ? `${downloadProgress}%` : t('home.downloadNow') }}
+          {{ downloadButtonLabel }}
         </button>
         <button class="ai-summary-button" :class="{ 'is-loading': aiTaskInProgress }" :disabled="aiLoading || aiTaskInProgress" type="button" @click="startAiSummary">
           <span v-if="aiTaskInProgress" class="button-loading-dots blue" aria-hidden="true">
@@ -1545,6 +1606,7 @@ const startBiliLogin = async () => {
           }}
         </span>
       </div>
+      <p v-if="showDownloadProgressHint" class="download-progress-hint">{{ t('home.downloadProgressHint') }}</p>
       <p class="download-legal-hint">
         {{ t('home.downloadLegalHint') }}
         <RouterLink to="/legal/copyright">{{ t('home.downloadLegalLink') }}</RouterLink>
@@ -1559,7 +1621,7 @@ const startBiliLogin = async () => {
         <span>{{ aiEstimateHint }}<span class="loading-ellipsis"></span></span>
       </p>
       <p v-if="task?.status === 'failed'" class="download-error">{{ task.error }}</p>
-      <p v-else-if="task?.download_url" class="download-success">{{ t('home.downloadDone') }}</p>
+      <p v-else-if="task?.download_url" class="download-success">{{ t('home.downloadReadyOpening') }}</p>
     </div>
 
     <section class="ai-summary-panel" :aria-label="t('home.aiPanelAria')">
