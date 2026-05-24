@@ -47,7 +47,11 @@ def _coerce_video_url(raw: str) -> str:
 
 ExtractStage = Literal["info", "download"]
 
-_FORMAT_HEIGHT_PATTERN = re.compile(r"(\d{3,4})")
+_FORMAT_HEIGHT_P_PATTERN = re.compile(r"(\d{3,4})p\b", re.I)
+_FORMAT_HEIGHT_FILTER_PATTERN = re.compile(r"height\s*<=?\s*(\d{3,4})", re.I)
+_FORMAT_RESOLUTION_PAIR_PATTERN = re.compile(r"\d+x(\d{3,4})\b")
+_FORMAT_STANDALONE_HEIGHT_PATTERN = re.compile(r"^(\d{3,4})p?$", re.I)
+_KNOWN_VIDEO_HEIGHTS = frozenset({240, 360, 480, 540, 576, 720, 1080, 1440, 2160, 4320})
 _YOUTUBE_HOST_RE = re.compile(r"(^|\.)youtube\.com|(^|\.)youtube-nocookie\.com|youtu\.be", re.I)
 _COOKIE_REDACT_PATTERNS = (
     re.compile(r"(?i)# Netscape HTTP Cookie File.*"),
@@ -196,18 +200,27 @@ def _humanize_extract_error(
 def _guess_height_from_format(format_str: str) -> int:
     """从 yt-dlp 的 format 字符串里粗略猜测请求的最高画质，用于免费用户分辨率拦截。
 
-    例如 "137+140"（YouTube 1080p）→ 137 不会被识别为高度，返回 0；
-    但 "best[height<=720]" 或前端传入的 "1080p" 等可识别情况会返回对应数值。"""
+    只识别明确的 height 语义（720p、height<=720、1280x720 等），
+    不把 Bilibili/YouTube 的 format_id（如 3006、30280）误判为分辨率。"""
 
-    if not format_str or format_str.lower() in {"best", "bestvideo", "worst"}:
+    if not format_str or format_str.strip().lower() in {"best", "bestvideo", "worst"}:
         return 0
-    matches = _FORMAT_HEIGHT_PATTERN.findall(format_str)
-    if not matches:
+
+    text = format_str.strip()
+    heights: list[int] = []
+    heights.extend(int(match.group(1)) for match in _FORMAT_HEIGHT_P_PATTERN.finditer(text))
+    heights.extend(int(match.group(1)) for match in _FORMAT_HEIGHT_FILTER_PATTERN.finditer(text))
+    heights.extend(int(match.group(1)) for match in _FORMAT_RESOLUTION_PAIR_PATTERN.finditer(text))
+    standalone = _FORMAT_STANDALONE_HEIGHT_PATTERN.match(text)
+    if standalone:
+        value = int(standalone.group(1))
+        if value in _KNOWN_VIDEO_HEIGHTS:
+            heights.append(value)
+
+    valid = [height for height in heights if 240 <= height <= 4320]
+    if not valid:
         return 0
-    heights = [int(m) for m in matches if 240 <= int(m) <= 4320]
-    if not heights:
-        return 0
-    return max(heights)
+    return max(valid)
 
 
 
