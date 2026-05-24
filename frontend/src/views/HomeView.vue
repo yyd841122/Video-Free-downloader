@@ -17,6 +17,7 @@ import MindMapView from '../components/MindMapView.vue'
 import SubtitleUploadPanel from '../components/SubtitleUploadPanel.vue'
 import VideoChatPanel from '../components/VideoChatPanel.vue'
 import { useUserStore } from '../stores/user'
+import { AI_SUMMARY_MVP_ENABLED } from '../constants/mvp'
 import { normalizeUserVideoInput } from '../utils/urlNormalize'
 
 const userStore = useUserStore()
@@ -661,6 +662,11 @@ const setFormatVipInlineHint = () => {
   inlineHints.value.download = t('home.formatVipInline')
 }
 
+const showAiSummaryComingSoon = () => {
+  inlineHints.value.ai = t('home.aiSummaryComingSoon')
+  inlineHintLogin.value.ai = false
+}
+
 const resolveUserFacingError = (err) => {
   const message = err?.message || ''
   if (looksLikeAppLoginRequiredError(message)) {
@@ -1056,6 +1062,10 @@ const pollAiSummaryTask = (taskId) => {
 }
 
 const startAiSummary = async () => {
+  if (!AI_SUMMARY_MVP_ENABLED) {
+    showAiSummaryComingSoon()
+    return
+  }
   if (!requireAppLogin('ai')) {
     return
   }
@@ -1099,6 +1109,10 @@ const startAiSummary = async () => {
 }
 
 const handleSubtitleSummaryCreated = (created) => {
+  if (!AI_SUMMARY_MVP_ENABLED) {
+    showAiSummaryComingSoon()
+    return
+  }
   aiTask.value = created
   displayAiProgress.value = Number(created.progress || 0)
   startAiProgressSmoothing()
@@ -1296,6 +1310,10 @@ const forgetBiliSession = () => {
 
 const openAiTaskFromQuery = async (taskId) => {
   if (!taskId) return
+  if (!AI_SUMMARY_MVP_ENABLED) {
+    showAiSummaryComingSoon()
+    return
+  }
   aiLoading.value = true
   error.value = ''
   try {
@@ -1698,8 +1716,14 @@ const startBiliLogin = async () => {
           </svg>
           {{ downloadButtonLabel }}
         </button>
-        <button class="ai-summary-button" :class="{ 'is-loading': aiTaskInProgress }" :disabled="aiLoading || aiTaskInProgress" type="button" @click="startAiSummary">
-          <span v-if="aiTaskInProgress" class="button-loading-dots blue" aria-hidden="true">
+        <button
+          class="ai-summary-button"
+          :class="{ 'is-loading': AI_SUMMARY_MVP_ENABLED && aiTaskInProgress }"
+          :disabled="AI_SUMMARY_MVP_ENABLED && (aiLoading || aiTaskInProgress)"
+          type="button"
+          @click="startAiSummary"
+        >
+          <span v-if="AI_SUMMARY_MVP_ENABLED && aiTaskInProgress" class="button-loading-dots blue" aria-hidden="true">
             <i></i>
             <i></i>
             <i></i>
@@ -1715,9 +1739,9 @@ const startBiliLogin = async () => {
             <path d="m9.3 14.7-2.8 2.8" />
           </svg>
           {{
-            aiTaskInProgress
+            AI_SUMMARY_MVP_ENABLED && aiTaskInProgress
               ? `${aiProgress}%`
-              : aiTask?.status === 'completed'
+              : AI_SUMMARY_MVP_ENABLED && aiTask?.status === 'completed'
                 ? t('home.aiResummary')
                 : t('home.aiSummary')
           }}
@@ -1745,7 +1769,7 @@ const startBiliLogin = async () => {
       </p>
       <p v-if="inlineHints.ai" class="inline-action-hint ai-inline-hint" role="status">
         {{ inlineHints.ai }}
-        <span class="inline-action-links">
+        <span v-if="inlineHintLogin.ai" class="inline-action-links">
           <RouterLink :to="{ name: 'login', query: { redirect: '/' } }">{{ t('nav.login') }}</RouterLink>
           <span aria-hidden="true"> · </span>
           <RouterLink to="/register">{{ t('nav.register') }}</RouterLink>
@@ -1770,6 +1794,10 @@ const startBiliLogin = async () => {
     </div>
 
     <section class="ai-summary-panel" :aria-label="t('home.aiPanelAria')">
+      <div v-if="!AI_SUMMARY_MVP_ENABLED" class="ai-beta-placeholder" role="status">
+        <p>{{ t('home.aiSummaryComingSoon') }}</p>
+      </div>
+      <template v-else>
       <div v-if="aiTask" :class="['ai-task-state', { warning: aiTask.status === 'no_transcript' }]" aria-live="polite">
         <p v-if="aiTask.status === 'no_transcript'" class="ai-empty-state">
           {{ aiNoTranscriptMessage }}
@@ -1935,6 +1963,7 @@ const startBiliLogin = async () => {
           </section>
         </div>
       </div>
+      </template>
     </section>
   </section>
 

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
 import { fetchOrders, fetchQuota, fetchTaskHistory, resolveApiUrl } from '../api/client'
+import { AI_SUMMARY_MVP_ENABLED } from '../constants/mvp'
 import { useUserStore } from '../stores/user'
 
 const { t } = useI18n()
@@ -46,10 +47,17 @@ const formatTime = (ts) => {
 }
 
 const chatLimitText = computed(() => {
+  if (!AI_SUMMARY_MVP_ENABLED) return t('account.quotaAiBeta')
   if (!quota.value) return '-'
   const n = quota.value.ai_chat_per_task
   if (!n) return t('account.chatUnlimited')
   return t('account.chatPerTask', { n })
+})
+
+const aiQuotaText = computed(() => {
+  if (!AI_SUMMARY_MVP_ENABLED) return t('account.quotaAiBeta')
+  if (!quota.value) return '-'
+  return `${quota.value.ai_used_today} / ${quota.value.ai_daily_limit}`
 })
 
 const resolutionText = computed(() => {
@@ -95,6 +103,10 @@ const loadHistory = async () => {
 
 const openHistoryItem = (item) => {
   if (item.kind === 'ai_summary') {
+    if (!AI_SUMMARY_MVP_ENABLED) {
+      router.push({ path: '/' })
+      return
+    }
     router.push({ path: '/', query: { ai_task: item.task_id } })
     return
   }
@@ -172,7 +184,7 @@ onMounted(async () => {
       <div class="quota-grid">
         <div class="quota-item">
           <span class="label">{{ t('account.quotaAiToday') }}</span>
-          <span class="value">{{ quota.ai_used_today }} / {{ quota.ai_daily_limit }}</span>
+          <span class="value">{{ aiQuotaText }}</span>
         </div>
         <div class="quota-item">
           <span class="label">{{ t('account.quotaConcurrent') }}</span>
@@ -232,13 +244,24 @@ onMounted(async () => {
                 {{ t('account.historyRedownload') }}
               </button>
               <button
-                v-else-if="item.kind === 'ai_summary' && item.file_available && item.status === 'completed'"
+                v-else-if="
+                  AI_SUMMARY_MVP_ENABLED &&
+                  item.kind === 'ai_summary' &&
+                  item.file_available &&
+                  item.status === 'completed'
+                "
                 type="button"
                 class="link-btn"
                 @click="openHistoryItem(item)"
               >
                 {{ t('account.historyViewAi') }}
               </button>
+              <span
+                v-else-if="!AI_SUMMARY_MVP_ENABLED && item.kind === 'ai_summary'"
+                class="muted-inline"
+              >
+                {{ t('account.historyAiBeta') }}
+              </span>
               <span v-else class="muted-inline">{{ t('account.historyUnavailable') }}</span>
             </td>
           </tr>
