@@ -157,7 +157,7 @@ export default {
       subtitle: 'Simple, fast, and powerful video downloading',
       platformsTitle: 'Multi-platform downloads',
       platformsDesc:
-        'Main path: Bilibili, Douyin, X (Twitter), TikTok, and common mp4 URLs; more sites via open-source extractors. Some YouTube links may be limited by platform verification.',
+        'Main support covers Bilibili, Douyin, X, TikTok, and common mp4 links; some YouTube links may be limited by platform verification.',
       fastTitle: 'Fast parsing',
       fastDesc: 'Smart link parsing with the best download path and less waiting.',
       mobileTitle: 'Works on mobile',
@@ -499,7 +499,7 @@ export default {
     benefitPriority: 'Priority queue',
     dash: '—',
     freeQuality: '720p',
-    vipQuality: 'Up to 1080p, 4K, or higher quality when available, depending on the platform and source video.',
+    vipQuality: 'Up to 1080p, 4K, or higher quality may be available, depending on the platform and source video.',
     freeAi: '3 / day',
     vipAi: '50 / day',
     freeChat: '5 rounds / summary',
@@ -564,7 +564,7 @@ export default {
     quotaChat: 'Q&A per summary',
     chatUnlimited: 'Unlimited',
     chatPerTask: '{n} rounds per summary',
-    resolutionUnlimited: 'Up to 1080p, 4K, or higher quality when available, depending on the platform and source video.',
+    resolutionUnlimited: 'Up to 1080p, 4K, or higher quality may be available, depending on the platform and source video.',
     resolutionMax: 'Up to {p}p',
   },
   payment: {

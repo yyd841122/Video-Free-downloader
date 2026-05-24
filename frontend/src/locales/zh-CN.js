@@ -157,7 +157,7 @@ export default {
       subtitle: '简单、快速、强大的视频下载体验',
       platformsTitle: '多平台解析下载',
       platformsDesc:
-        '当前主链路覆盖 Bilibili、抖音、X（Twitter）、TikTok 及常见 mp4 直链；基于开源生态还可尝试更多站点。YouTube 部分链接可能受平台验证限制。',
+        '主支持 Bilibili、抖音、X、TikTok 及常见 mp4 直链；YouTube 部分链接可能受平台验证限制。',
       fastTitle: '极速解析下载',
       fastDesc: '智能解析视频链接，自动匹配最优下载方式，减少等待步骤。',
       mobileTitle: '手机也能用',
@@ -501,7 +501,7 @@ export default {
     benefitPriority: '优先队列',
     dash: '—',
     freeQuality: '720p',
-    vipQuality: '最高支持 1080p / 4K 等更高清晰度，具体取决于平台和原视频可用格式',
+    vipQuality: '最高可选 1080p / 4K 等清晰度，具体取决于平台和原视频可用格式',
     freeAi: '3 次 / 天',
     vipAi: '50 次 / 天',
     freeChat: '每总结 5 轮',
@@ -566,7 +566,7 @@ export default {
     quotaChat: '每总结追问',
     chatUnlimited: '不限',
     chatPerTask: '每总结 {n} 轮',
-    resolutionUnlimited: '最高支持 1080p / 4K 等更高清晰度，具体取决于平台和原视频可用格式',
+    resolutionUnlimited: '最高可选 1080p / 4K 等清晰度，具体取决于平台和原视频可用格式',
     resolutionMax: '最高 {p}p',
   },
   payment: {
