@@ -21,7 +21,7 @@ export default {
     heroTitle: '万能视频下载器，',
     heroTitleEm: '一键保存',
     heroSubtitle:
-      '粘贴视频链接，智能解析多种清晰度。当前主支持 Bilibili、抖音、X（Twitter）及常见 mp4 直链；YouTube 部分链接可能受平台验证限制，可稍后重试。',
+      '粘贴视频链接，智能解析多种清晰度。当前主支持 Bilibili、抖音、X（Twitter）及常见 mp4 直链。',
     searchAria: '视频下载控制台',
     urlLabel: '视频链接',
     urlPlaceholder: 'https://www.bilibili.com/video/BV... 粘贴视频链接',

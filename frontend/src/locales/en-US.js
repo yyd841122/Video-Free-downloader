@@ -21,7 +21,7 @@ export default {
     heroTitle: 'Universal video downloader, ',
     heroTitleEm: 'save in one click',
     heroSubtitle:
-      'Paste a link and pick a quality. Main support: Bilibili, Douyin, X (Twitter), and common mp4 URLs. Some YouTube links may be blocked by platform verification — try again later.',
+      'Paste a link and pick a quality. Main support: Bilibili, Douyin, X (Twitter), and common mp4 URLs.',
     searchAria: 'Video download console',
     urlLabel: 'Video URL',
     urlPlaceholder: 'https://www.bilibili.com/video/BV... Paste a video link',
