@@ -630,6 +630,17 @@ const looksLikeBiliAuthError = (message) =>
   /412|precondition failed|风控|扫码登录|登录态/i.test(String(message || ''))
 
 // YouTube 机房 IP 常触发 bot / sign-in / cookies 类错误；吞掉英文长报错，改弹 Cookie 引导面板。
+// 旧版后端在 info 阶段可能误报「清晰度不可用」；解析阶段不应出现该文案。
+const looksLikeMisleadingYouTubeClarityError = (message) =>
+  /当前清晰度不可用|清晰度不可用|resolution is unavailable/i.test(String(message || ''))
+
+const normalizeYouTubeInfoError = (message) => {
+  if (looksLikeMisleadingYouTubeClarityError(message)) {
+    return t('home.youtubeInfoParseFailed')
+  }
+  return message
+}
+
 const looksLikeYouTubeAuthError = (message) => {
   const text = String(message || '')
   const lower = text.toLowerCase()
@@ -809,7 +820,7 @@ const parseInfo = async () => {
       focusYouTubeAuthPanel()
       return
     }
-    error.value = err.message
+    error.value = isYouTube ? normalizeYouTubeInfoError(err.message) : err.message
   } finally {
     loading.value = false
   }

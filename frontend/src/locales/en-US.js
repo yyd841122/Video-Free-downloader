@@ -67,6 +67,8 @@ export default {
     youtubeCookieFileLoaded: 'Loaded file: {name}',
     youtubeCookieFileFailed: 'Could not read that file. Please try again.',
     youtubeCookiePick: 'Choose cookies.txt',
+    youtubeInfoParseFailed:
+      'YouTube still blocked the server request. Please make sure your cookies.txt was exported from youtube.com and your account is still signed in. If it still fails, YouTube verification or regional restrictions may be blocking the request.',
     resultAria: 'Parse result',
     coverAlt: 'Video thumbnail',
     untitledVideo: 'Untitled video',
@@ -251,7 +253,7 @@ export default {
       steps: [
         'Step 1: Sign in to YouTube in Chrome or Microsoft Edge.',
         'Step 3: Open https://www.youtube.com.',
-        'Step 4: Click the extensions icon in the browser toolbar.',
+        'Step 4: Click the extensions icon in the browser toolbar, confirm the popup header shows https://www.youtube.com/, then click the blue Export button.',
         'Step 5: Choose to export Netscape-format cookies.txt.',
         'Step 6: Return to SaveAny’s YouTube verification prompt.',
         'Step 7: Click “I have cookies.txt”.',

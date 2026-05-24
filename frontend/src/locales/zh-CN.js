@@ -67,6 +67,8 @@ export default {
     youtubeCookieFileLoaded: '已读取文件：{name}',
     youtubeCookieFileFailed: '无法读取该文件，请重试',
     youtubeCookiePick: '选择 cookies.txt',
+    youtubeInfoParseFailed:
+      'YouTube 仍然拒绝了服务器解析请求。请确认 cookies.txt 是从 youtube.com 页面导出的，并且账号仍处于登录状态。若仍失败，可能是 YouTube 平台验证或地区限制导致，请稍后重试。',
     resultAria: '解析结果',
     coverAlt: '视频封面',
     untitledVideo: '未命名视频',
@@ -251,7 +253,7 @@ export default {
       steps: [
         '第一步：在 Chrome 或 Edge 浏览器中登录 YouTube。',
         '第三步：打开 https://www.youtube.com。',
-        '第四步：点击浏览器右上角扩展图标。',
+        '第四步：点击浏览器右上角扩展图标，确认弹窗顶部显示的是 https://www.youtube.com/，然后点击蓝色 Export 按钮。',
         '第五步：选择导出 Netscape 格式 cookies.txt。',
         '第六步：回到 SaveAny 的 YouTube 验证提示。',
         '第七步：点击「我已有 cookies.txt」。',

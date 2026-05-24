@@ -1,6 +1,8 @@
+import logging
 import re
 from threading import BoundedSemaphore
-from typing import Optional
+from typing import Literal, Optional
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
@@ -33,17 +35,112 @@ from app.services.ytdlp_service import download_video_task, extract_direct_link,
 
 router = APIRouter(prefix="/video")
 info_semaphore = BoundedSemaphore(MAX_CONCURRENT_INFO_TASKS)
+logger = logging.getLogger(__name__)
 
+ExtractStage = Literal["info", "download"]
 
 _FORMAT_HEIGHT_PATTERN = re.compile(r"(\d{3,4})")
+_YOUTUBE_HOST_RE = re.compile(r"(^|\.)youtube\.com|(^|\.)youtube-nocookie\.com|youtu\.be", re.I)
+_COOKIE_REDACT_PATTERNS = (
+    re.compile(r"(?i)# Netscape HTTP Cookie File.*"),
+    re.compile(r"(?i)\bcookies?\s*[:=]\s*\S+"),
+    re.compile(r"(?i)\bset-cookie\s*:\s*\S+"),
+    re.compile(r"(?i)\bCookie\s*:\s*\S+"),
+    re.compile(r"(?i)\bSESSDATA=[^\s;]+"),
+    re.compile(r"(?i)\bLOGIN_INFO=[^\s;]+"),
+    re.compile(r"(?i)\bSID=[^\s;]+"),
+    re.compile(r"(?i)\bHSID=[^\s;]+"),
+    re.compile(r"(?i)\bSSID=[^\s;]+"),
+)
 
 
-def _humanize_extract_error(exc: Exception) -> str:
+def _is_youtube_url(url: str | None) -> bool:
+    hostname = urlparse(url or "").hostname or ""
+    return bool(_YOUTUBE_HOST_RE.search(hostname))
+
+
+def _sanitize_error_summary(raw: str, max_len: int = 200) -> str:
+    text = str(raw or "").strip().replace("\n", " ").replace("\r", " ")
+    for pattern in _COOKIE_REDACT_PATTERNS:
+        text = pattern.sub("[redacted]", text)
+    if "\t" in text and "TRUE" in text.upper():
+        text = "[cookie file content redacted]"
+    return text[:max_len]
+
+
+def _is_requested_format_unavailable(raw: str) -> bool:
+    lower = raw.lower()
+    return "requested format is not available" in lower or "requested format not available" in lower
+
+
+def _youtube_info_blocked_message() -> str:
+    return (
+        "YouTube 仍然拒绝了服务器解析请求。请确认 cookies.txt 是从 youtube.com 页面导出的，"
+        "并且账号仍处于登录状态。若仍失败，可能是 YouTube 平台验证或地区限制导致，请稍后重试。"
+    )
+
+
+def _classify_extract_error(raw: str, stage: ExtractStage) -> str:
+    lower = raw.lower()
+    if "412" in raw or "precondition failed" in lower:
+        return "http_412"
+    if "429" in raw or "too many requests" in lower:
+        return "rate_limit"
+    if "sign in" in lower or "login required" in lower or "cookies are no longer valid" in lower:
+        return "login_required"
+    if "unsupported url" in lower:
+        return "unsupported_url"
+    if _is_requested_format_unavailable(raw):
+        return "format_unavailable" if stage == "download" else "format_unavailable_misreported"
+    if "unable to extract" in lower or "unable to download webpage" in lower:
+        return "extract_failed"
+    return "unknown"
+
+
+def _log_extract_failure(
+    *,
+    endpoint: str,
+    url: str | None,
+    exc: Exception,
+    stage: ExtractStage,
+    provided_cookies: bool,
+) -> None:
+    raw = str(exc).strip()
+    platform = "youtube" if _is_youtube_url(url) else "other"
+    category = _classify_extract_error(raw, stage)
+    logger.warning(
+        "video_extract_failed endpoint=%s stage=%s platform=%s category=%s provided_cookies=%s summary=%s",
+        endpoint,
+        stage,
+        platform,
+        category,
+        "yes" if provided_cookies else "no",
+        _sanitize_error_summary(raw),
+    )
+
+
+def _humanize_extract_error(
+    exc: Exception,
+    *,
+    stage: ExtractStage = "info",
+    url: str | None = None,
+) -> str:
     """yt-dlp 原始报错对普通用户不友好，转成可操作建议。"""
 
     raw = str(exc).strip()
     lower = raw.lower()
+    is_youtube = _is_youtube_url(url)
     is_bilibili = "bilibili" in lower or "bilibili" in raw
+
+    if _is_requested_format_unavailable(raw):
+        if stage == "info":
+            if is_youtube:
+                return _youtube_info_blocked_message()
+            return (
+                "无法解析该视频的可用格式（尚未进入下载阶段）。"
+                "请检查链接是否有效，或在「高级选项」处提供登录 Cookies 后重试。"
+            )
+        return "当前清晰度不可用，请切换「最佳」或较低清晰度后重试。"
     if "412" in raw or "precondition failed" in lower:
         # yt-dlp #14830 已知开放问题：Bilibili WAF 对数据中心 IP 直接抛 412 风控挑战。
         # 当前没有"代码层"修复手段；唯一可靠出路是带登录态请求。
@@ -67,25 +164,25 @@ def _humanize_extract_error(exc: Exception) -> str:
             "3）也可以先解析其他平台的视频。"
         )
     if "sign in" in lower or "login required" in lower or "cookies are no longer valid" in lower:
+        if stage == "info" and is_youtube:
+            return _youtube_info_blocked_message()
         return (
             "该视频需要登录才能解析。请先登录对应平台账号，然后导出浏览器 Cookies 粘贴到「高级选项」处再试。\n"
-            f"原始信息：{raw[:200]}"
+            f"原始信息：{_sanitize_error_summary(raw)}"
         )
     if "unsupported url" in lower:
-        return f"暂不支持该链接的格式或站点。请确认链接完整且为公开可访问的视频页面。\n原始信息：{raw[:200]}"
-    if (
-        "requested format is not available" in lower
-        or "requested format not available" in lower
-        or "format is not available" in lower
-    ):
-        return "当前清晰度不可用，请切换「最佳」或较低清晰度后重试。"
+        return f"暂不支持该链接的格式或站点。请确认链接完整且为公开可访问的视频页面。\n原始信息：{_sanitize_error_summary(raw)}"
     if "unable to extract" in lower or "unable to download webpage" in lower:
+        if stage == "info" and is_youtube:
+            return _youtube_info_blocked_message()
         return (
             "无法解析该视频页面（可能是平台改版、视频被删除、地区限制或需登录）。\n"
             "可尝试：1) 检查链接是否能在浏览器正常打开；2) 升级 yt-dlp：pip install -U yt-dlp；3) 提供 Cookies 重试。\n"
-            f"原始信息：{raw[:200]}"
+            f"原始信息：{_sanitize_error_summary(raw)}"
         )
-    return raw
+    if stage == "info" and is_youtube:
+        return _youtube_info_blocked_message()
+    return _sanitize_error_summary(raw) if raw else "解析失败，请稍后重试。"
 
 
 def _guess_height_from_format(format_str: str) -> int:
@@ -110,11 +207,22 @@ def _guess_height_from_format(format_str: str) -> int:
 def video_info(payload: VideoInfoRequest) -> VideoInfoResponse:
     if not info_semaphore.acquire(blocking=False):
         raise HTTPException(status_code=429, detail="当前解析请求较多，请稍后再试")
+    cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
+    provided_cookies = bool((cookies or "").strip() or (payload.browser_cookies or "").strip())
     try:
-        cookies = payload.cookies or bili_auth_store.get_cookies(payload.auth_session_id)
         return extract_info(str(payload.url), cookies, payload.browser_cookies)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=_humanize_extract_error(exc)) from exc
+        _log_extract_failure(
+            endpoint="/api/video/info",
+            url=str(payload.url),
+            exc=exc,
+            stage="info",
+            provided_cookies=provided_cookies,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=_humanize_extract_error(exc, stage="info", url=str(payload.url)),
+        ) from exc
     finally:
         info_semaphore.release()
 
@@ -230,7 +338,18 @@ def create_direct_link(
             payload.browser_cookies,
         )
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=_humanize_extract_error(exc)) from exc
+        provided_cookies = bool((cookies or "").strip() or (payload.browser_cookies or "").strip())
+        _log_extract_failure(
+            endpoint="/api/video/direct",
+            url=str(payload.url),
+            exc=exc,
+            stage="download",
+            provided_cookies=provided_cookies,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=_humanize_extract_error(exc, stage="download", url=str(payload.url)),
+        ) from exc
 
     base_url = str(request.base_url).rstrip("/")
     return DirectLinkResponse(
