@@ -309,6 +309,43 @@ a {
   color: #a6afbd;
 }
 
+.paste-url-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 38px;
+  padding: 0 12px;
+  color: #4b596a;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: #f4f7fb;
+  border: 1px solid #e8eef7;
+  border-radius: 999px;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.paste-url-button:hover:not(:disabled) {
+  color: #367cff;
+  background: #eef5ff;
+  border-color: #d6e6ff;
+}
+
+.paste-url-button:focus-visible {
+  outline: 3px solid rgba(54, 124, 255, 0.22);
+  outline-offset: 2px;
+}
+
+.paste-url-button:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
 .clear-url-button {
   display: inline-grid;
   flex: 0 0 auto;
@@ -2315,6 +2352,7 @@ fieldset legend,
     flex-basis: calc(100% - 96px);
   }
 
+  .paste-url-button,
   .clear-url-button {
     margin-top: 4px;
   }

@@ -27,6 +27,12 @@ export default {
     urlPlaceholder: 'https://www.bilibili.com/video/BV... Paste a video link',
     clearUrlAria: 'Clear video URL',
     clearUrlTitle: 'Clear',
+    pasteButton: 'Paste',
+    pasteReading: 'Reading…',
+    clipboardEmpty: 'Clipboard is empty. Please copy a video link first.',
+    clipboardNoVideoUrl:
+      'No video link was found in the clipboard. Please copy the full video link and try again.',
+    clipboardPermissionDenied: 'The browser did not allow clipboard access. Please paste the link manually.',
     parseVideo: 'Parse video',
     batchShow: 'Batch download (VIP)',
     batchHide: 'Hide batch download',

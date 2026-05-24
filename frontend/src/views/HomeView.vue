@@ -26,6 +26,7 @@ const { t, locale } = useI18n()
 
 const url = ref('')
 const urlInput = ref(null)
+const pasteLoading = ref(false)
 const cookiesText = ref('')
 const useBrowserCookies = ref(false)
 const browserCookies = ref('chrome')
@@ -671,6 +672,53 @@ const clearUrl = () => {
   youtubeAuthMessage.value = ''
   cookiesText.value = ''
   urlInput.value?.focus()
+}
+
+const applyPastedUrlText = (rawText) => {
+  const trimmed = String(rawText ?? '').trim()
+  if (!trimmed) {
+    loginActionVisible.value = false
+    error.value = t('home.clipboardEmpty')
+    return false
+  }
+  const result = normalizeUserVideoInput(trimmed)
+  if (!result.url) {
+    loginActionVisible.value = false
+    error.value = t('home.clipboardNoVideoUrl')
+    return false
+  }
+  const currentUrl = normalizeUserVideoInput(url.value).url || url.value.trim()
+  if (result.url !== currentUrl) {
+    resetSingleParseState()
+    url.value = result.url
+  } else {
+    error.value = ''
+    loginActionVisible.value = false
+    url.value = result.url
+  }
+  urlInput.value?.focus()
+  return true
+}
+
+const pasteFromClipboard = async () => {
+  if (pasteLoading.value) {
+    return
+  }
+  if (!navigator?.clipboard?.readText) {
+    loginActionVisible.value = false
+    error.value = t('home.clipboardPermissionDenied')
+    return
+  }
+  pasteLoading.value = true
+  try {
+    const text = await navigator.clipboard.readText()
+    applyPastedUrlText(text)
+  } catch {
+    loginActionVisible.value = false
+    error.value = t('home.clipboardPermissionDenied')
+  } finally {
+    pasteLoading.value = false
+  }
 }
 
 const normalizeMainUrlField = () => {
@@ -1322,6 +1370,16 @@ const startBiliLogin = async () => {
           :placeholder="t('home.urlPlaceholder')"
           @keyup.enter="parseInfo"
         />
+        <button
+          class="paste-url-button"
+          type="button"
+          :disabled="pasteLoading"
+          :aria-label="t('home.pasteButton')"
+          :title="t('home.pasteButton')"
+          @click="pasteFromClipboard"
+        >
+          {{ pasteLoading ? t('home.pasteReading') : t('home.pasteButton') }}
+        </button>
         <button
           v-if="url"
           class="clear-url-button"
