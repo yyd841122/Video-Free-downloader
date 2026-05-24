@@ -1300,9 +1300,9 @@ const startBiliLogin = async () => {
 
       <div v-if="!heroCompact" class="quick-row">
         <span>{{ t('home.tryLabel') }}</span>
-        <button type="button">YouTube</button>
-        <button type="button">Bilibili</button>
-        <button type="button">Twitter/X</button>
+        <button type="button">{{ t('home.quickBilibili') }}</button>
+        <button type="button">{{ t('home.quickDouyin') }}</button>
+        <button type="button">{{ t('home.quickX') }}</button>
       </div>
 
       <div v-if="showBiliAuthPanel" ref="biliAuthPanelEl" class="bili-auth-panel">
