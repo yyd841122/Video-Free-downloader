@@ -300,6 +300,8 @@ export default {
     privacy: 'Privacy',
     terms: 'Terms',
     copyright: 'Copyright',
+    contact: 'Contact',
+    contactEmail: 'support@cozyguidehub.com',
     rights: '© {year} SaveAny. Use this service lawfully and responsibly.',
   },
   legal: {
@@ -307,7 +309,7 @@ export default {
     lastUpdated: 'Last updated: {date}',
     privacy: {
       title: 'Privacy Policy',
-      date: '2026-05-22',
+      date: '2026-05-24',
       sections: [
         {
           title: 'Overview',
@@ -320,7 +322,7 @@ export default {
           items: [
             'Account: email, optional nickname, and a hashed password when you register.',
             'Usage: metadata about download and AI tasks (URL, status, time) for quotas and history.',
-            'Payments: order ID, plan, amount, and status. Card details are handled by Stripe; we do not store full card numbers.',
+            'Payments: order ID, plan, amount, payment status, payment completion time, Stripe session identifiers, etc., for reconciliation, VIP activation, and support. Full card numbers are processed by Stripe; we do not store them.',
             'Technical logs: access time, IP, browser type, etc., for security and troubleshooting.',
           ],
         },
@@ -337,13 +339,14 @@ export default {
           title: 'Storage & retention',
           paragraphs: [
             'Account and order data are stored in our database. Downloaded files and AI outputs are kept temporarily on our servers and deleted after a limited period based on your plan. Please save important files on your own device.',
+            'Order and payment records may be retained for legal, reconciliation, and dispute-handling purposes.',
             'We do not sell your personal data.',
           ],
         },
         {
           title: 'Third parties',
           items: [
-            'Stripe for payments.',
+            'Stripe for payment processing; card data is collected by Stripe. See Stripe’s Privacy Policy (https://stripe.com/privacy).',
             'AI providers (e.g. DeepSeek) for summaries using transcript text, not full video uploads in the normal flow.',
             'Video platforms accessed via yt-dlp are subject to their own terms.',
           ],
@@ -351,18 +354,20 @@ export default {
         {
           title: 'Your rights',
           paragraphs: [
-            'You may request export or deletion of your account data, subject to legal retention requirements for orders. Contact us via your registered email.',
+            'You may request export or deletion of your account data, subject to legal retention requirements for orders. Contact us at support@cozyguidehub.com or from your registered email.',
           ],
         },
         {
           title: 'Contact',
-          paragraphs: ['For privacy requests, please email us from your registered account address.'],
+          paragraphs: [
+            'For privacy or payment questions, email support@cozyguidehub.com with your registered address and order number (if applicable).',
+          ],
         },
       ],
     },
     terms: {
       title: 'Terms of Service',
-      date: '2026-05-22',
+      date: '2026-05-24',
       sections: [
         {
           title: 'Acceptance',
@@ -385,7 +390,22 @@ export default {
           title: 'VIP & payments',
           items: [
             'VIP is a one-time purchase for a fixed period, not an auto-renewing subscription unless clearly stated otherwise.',
-            'Digital services are generally non-refundable except where required by law; contact support for billing issues.',
+            'Refunds are governed by the Refund policy below, except where law or Stripe policy requires otherwise.',
+          ],
+        },
+        {
+          title: 'Refund policy',
+          items: [
+            'SaveAny VIP is a digital membership service, not a physical product.',
+            'Once VIP is activated, refunds are generally not available.',
+            'Before purchase, confirm the plan, price, duration, and feature limits.',
+            'If VIP benefits are active or you have used VIP downloads, HD downloads, batch downloads, or similar benefits, refunds are usually not granted.',
+            'For clear billing errors—duplicate charges, payment succeeded but VIP not granted, or abnormal order status—contact support for manual review.',
+            'Include your registered email, order number, payment time, and a description. Email support@cozyguidehub.com.',
+            'We typically respond within 5–10 business days.',
+            'If we confirm a system or billing error, we will help resolve it.',
+            'If a refund is issued to the original payment method, timing depends on Stripe, your bank, or the payment provider.',
+            'For payment disputes, please contact us first before initiating a chargeback.',
           ],
         },
         {
@@ -503,10 +523,10 @@ export default {
     colFree: 'Free',
     colVip: 'VIP',
     trustTitle: 'Payment security',
-    trust1: 'Production checkout is planned via Stripe (PCI-DSS); we never store card numbers. In test mode, checkout is simulated — no real charge.',
-    trust2: 'Production: idempotency keys and verified webhooks before VIP is granted. Test mode uses a mock flow — not real Stripe.',
+    trust1: 'Payments are processed securely by Stripe (PCI-DSS). We never store full card numbers.',
+    trust2: 'VIP is granted only after Stripe payment and a verified webhook. Idempotency prevents duplicate activation.',
     trust3: 'One-time payment adds duration — no auto-renewal. Lifetime is a single purchase.',
-    trust4: 'Issues? Check order status in Account or place a new order.',
+    trust4: 'Check Account → My orders for status. Pending orders can use Continue payment. For billing issues, see Terms or contact support.',
     benefitQuality: 'Video quality',
     benefitAi: 'AI summary',
     benefitChat: 'AI Q&A',
@@ -554,6 +574,8 @@ export default {
     historyAiBeta: 'Coming soon',
     historyUnavailable: 'Expired',
     myOrders: 'My orders',
+    ordersHelp:
+      'Pending orders can use Continue payment to complete Stripe Checkout. Paid orders mean VIP is active. Canceled or expired orders require a new checkout.',
     refresh: 'Refresh',
     ordersLoadFailed: 'Failed to load orders',
     ordersLoading: 'Loading orders…',
@@ -622,8 +644,11 @@ export default {
     checking: 'Checking order status…',
     orderNoMissing: 'Missing order number',
     cancelTitle: 'Payment canceled',
-    cancelWithOrder: 'Order {orderNo} was not paid. You can try again anytime.',
-    cancelGeneric: 'Checkout was not completed.',
+    cancelWithOrder:
+      'Order {orderNo} was not completed. In Account, open this pending order and tap Continue payment, or return to pricing to choose again.',
+    cancelGeneric:
+      'Checkout was not completed. In Account, pending orders can use Continue payment.',
+    viewMyOrders: 'View my orders',
     backPricing: 'Back to pricing',
     backHomeShort: 'Home',
   },

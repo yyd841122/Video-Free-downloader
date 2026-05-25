@@ -287,6 +287,7 @@ onMounted(async () => {
         <h2>{{ t('account.myOrders') }}</h2>
         <button type="button" class="refresh" @click="loadOrders">{{ t('account.refresh') }}</button>
       </header>
+      <p class="orders-help">{{ t('account.ordersHelp') }}</p>
       <p v-if="error" class="error">{{ error }}</p>
       <div v-if="loading" class="muted">{{ t('account.ordersLoading') }}</div>
       <div v-else-if="!orders.length" class="empty">
@@ -506,6 +507,12 @@ onMounted(async () => {
   color: #fff;
   background: linear-gradient(180deg, #4d90ff 0%, #2268f0 100%);
   border-radius: 999px;
+}
+.orders-help {
+  margin: 0 0 12px;
+  color: #67758a;
+  font-size: 13px;
+  line-height: 1.6;
 }
 .orders-table {
   width: 100%;

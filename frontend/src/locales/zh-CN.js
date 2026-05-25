@@ -297,6 +297,8 @@ export default {
     privacy: '隐私政策',
     terms: '用户协议',
     copyright: '版权说明',
+    contact: '联系我们',
+    contactEmail: 'support@cozyguidehub.com',
     rights: '© {year} SaveAny. 请合法、合理使用本服务。',
   },
   legal: {
@@ -304,7 +306,7 @@ export default {
     lastUpdated: '最后更新：{date}',
     privacy: {
       title: '隐私政策',
-      date: '2026-05-22',
+      date: '2026-05-24',
       sections: [
         {
           title: '概述',
@@ -317,7 +319,7 @@ export default {
           items: [
             '账户信息：注册时的邮箱、昵称（可选）、加密后的密码。',
             '使用数据：下载与 AI 总结任务元数据（链接、状态、时间），用于配额与任务记录。',
-            '支付信息：订单号、套餐、金额与支付状态；银行卡等敏感信息由 Stripe 处理，我们不存储完整卡号。',
+            '支付信息：订单号、套餐、金额、支付状态、支付完成时间、Stripe 会话标识等，用于对账、会员开通与客服处理；完整银行卡号由 Stripe 处理，本站不存储。',
             '技术日志：访问时间、IP、浏览器类型等基础日志，用于安全与排障。',
           ],
         },
@@ -334,13 +336,14 @@ export default {
           title: '存储与保留',
           paragraphs: [
             '账户与订单数据保存在我们的服务器数据库中。下载与 AI 生成的文件在服务器上临时保存，并按会员等级在一定时间后自动删除；请您将重要内容保存到本地设备。',
+            '订单与支付状态记录可能会按法律、对账和争议处理需要保留一定期限。',
             '我们不会将您的数据出售给第三方。',
           ],
         },
         {
           title: '第三方服务',
           items: [
-            'Stripe：支付处理。',
+            'Stripe：支付处理；完整卡号等信息由 Stripe 收集，详见 Stripe 隐私政策（https://stripe.com/privacy）。',
             'DeepSeek 等：AI 总结（仅发送字幕/文本片段，不上传完整视频文件用于总结时的常规流程）。',
             'yt-dlp 所访问的各视频平台：受该平台条款约束。',
           ],
@@ -348,18 +351,18 @@ export default {
         {
           title: '您的权利',
           paragraphs: [
-            '您可申请导出或删除账户及相关数据（法律要求保留的订单记录除外）。请通过注册邮箱联系我们。',
+            '您可申请导出或删除账户及相关数据（法律要求保留的订单记录除外）。请通过 support@cozyguidehub.com 或您注册邮箱联系我们。',
           ],
         },
         {
           title: '联系我们',
-          paragraphs: ['如有隐私相关问题，请通过您注册账户的邮箱向我们提交请求。'],
+          paragraphs: ['如有隐私或支付相关问题，请发送邮件至 support@cozyguidehub.com，并注明您的注册邮箱与订单号（如适用）。'],
         },
       ],
     },
     terms: {
       title: '用户服务协议',
-      date: '2026-05-22',
+      date: '2026-05-24',
       sections: [
         {
           title: '接受条款',
@@ -384,7 +387,22 @@ export default {
           title: '会员与付款',
           items: [
             '会员为一次性付款、按时长开通，非自动订阅续费（除非页面另有明确说明）。',
-            '除法律或 Stripe 政策另有规定外，数字服务一般不支持无理由退款；误购请联系客服协商。',
+            '除法律或 Stripe 政策另有规定外，退款规则详见下文「退款政策」。',
+          ],
+        },
+        {
+          title: '退款政策',
+          items: [
+            'SaveAny 提供的是数字会员服务（非实物商品）。',
+            '数字会员服务一经开通，原则上不支持退款。',
+            '购买前请确认套餐内容、价格、会员期限和功能限制。',
+            '若会员权益已开通，或您已使用会员下载、高清下载、批量下载等权益，通常不予退款。',
+            '如出现重复扣款、支付成功但会员未开通、订单状态异常等明显账单问题，可联系客服人工核查。',
+            '联系时请提供注册邮箱、订单号、付款时间和问题说明，发送至 support@cozyguidehub.com。',
+            '我们通常会在 5–10 个工作日内回复。',
+            '经核查确认为系统或账单异常的，我们会协助处理。',
+            '如涉及原路退回，到账时间以 Stripe、银行或支付渠道处理为准。',
+            '如遇支付争议，建议先联系本站客服处理，而非直接发起 chargeback。',
           ],
         },
         {
@@ -502,10 +520,10 @@ export default {
     colFree: '免费版',
     colVip: '高级会员',
     trustTitle: '付款安全说明',
-    trust1: '正式收款计划通过 Stripe 处理（PCI-DSS），本站不存储信用卡号。当前若为测试模式，仅模拟支付、不会真实扣款。',
-    trust2: '正式环境：订单使用 idempotency_key 防重复扣款，Webhook 验签后才开通会员。测试模式走模拟流程，不经过真实 Stripe。',
+    trust1: '支付由 Stripe 安全处理（PCI-DSS 合规），本站不存储完整银行卡号。',
+    trust2: '订单经 Stripe 完成支付后，我们通过验签 Webhook 开通会员，并使用幂等机制防止重复开通。',
     trust3: '本服务为「一次性付款 + 时长充值」，不会自动续费；终身会员一次买断永久有效。',
-    trust4: '支付遇到任何问题，可在「个人中心」查看订单状态，或重新下单。',
+    trust4: '如有疑问，请在「个人中心 → 我的订单」查看状态；待支付订单可点击「继续支付」。账单异常请参阅用户协议或联系客服。',
     benefitQuality: '高清画质',
     benefitAi: 'AI 总结',
     benefitChat: 'AI 问答',
@@ -553,6 +571,8 @@ export default {
     historyAiBeta: '即将开放',
     historyUnavailable: '已过期',
     myOrders: '我的订单',
+    ordersHelp:
+      '待支付订单可点击「继续支付」完成 Stripe Checkout；已支付订单表示会员权益已生效；已取消或已过期订单请重新下单。',
     refresh: '刷新',
     ordersLoadFailed: '订单加载失败',
     ordersLoading: '订单加载中…',
@@ -621,8 +641,10 @@ export default {
     checking: '订单状态查询中…',
     orderNoMissing: '订单号缺失',
     cancelTitle: '支付已取消',
-    cancelWithOrder: '订单 {orderNo} 未完成支付，可以随时重新下单。',
-    cancelGeneric: '支付流程未完成。',
+    cancelWithOrder:
+      '订单 {orderNo} 尚未完成支付。您可在个人中心对该待支付订单点击「继续支付」，或返回套餐页重新选择。',
+    cancelGeneric: '支付尚未完成。您可在个人中心对待支付订单点击「继续支付」。',
+    viewMyOrders: '查看我的订单',
     backPricing: '返回套餐页',
     backHomeShort: '回到首页',
   },

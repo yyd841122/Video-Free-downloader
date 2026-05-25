@@ -103,6 +103,7 @@ const handleLogout = () => {
         <RouterLink to="/legal/privacy">{{ t('footer.privacy') }}</RouterLink>
         <RouterLink to="/legal/terms">{{ t('footer.terms') }}</RouterLink>
         <RouterLink to="/legal/copyright">{{ t('footer.copyright') }}</RouterLink>
+        <a :href="`mailto:${t('footer.contactEmail')}`">{{ t('footer.contact') }}</a>
       </nav>
       <p class="footer-rights">{{ t('footer.rights', { year: new Date().getFullYear() }) }}</p>
     </footer>
