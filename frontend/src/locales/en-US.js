@@ -301,7 +301,7 @@ export default {
     terms: 'Terms',
     copyright: 'Copyright',
     contact: 'Contact',
-    contactEmail: 'support@cozyguidehub.com',
+    contactEmail: "support{'@'}cozyguidehub.com",
     rights: '© {year} SaveAny. Use this service lawfully and responsibly.',
   },
   legal: {
@@ -354,13 +354,13 @@ export default {
         {
           title: 'Your rights',
           paragraphs: [
-            'You may request export or deletion of your account data, subject to legal retention requirements for orders. Contact us at support@cozyguidehub.com or from your registered email.',
+            'You may request export or deletion of your account data, subject to legal retention requirements for orders. Contact us at support{\'@\'}cozyguidehub.com or from your registered email.',
           ],
         },
         {
           title: 'Contact',
           paragraphs: [
-            'For privacy or payment questions, email support@cozyguidehub.com with your registered address and order number (if applicable).',
+            'For privacy or payment questions, email support{\'@\'}cozyguidehub.com with your registered address and order number (if applicable).',
           ],
         },
       ],
@@ -401,7 +401,7 @@ export default {
             'Before purchase, confirm the plan, price, duration, and feature limits.',
             'If VIP benefits are active or you have used VIP downloads, HD downloads, batch downloads, or similar benefits, refunds are usually not granted.',
             'For clear billing errors—duplicate charges, payment succeeded but VIP not granted, or abnormal order status—contact support for manual review.',
-            'Include your registered email, order number, payment time, and a description. Email support@cozyguidehub.com.',
+            'Include your registered email, order number, payment time, and a description. Email support{\'@\'}cozyguidehub.com.',
             'We typically respond within 5–10 business days.',
             'If we confirm a system or billing error, we will help resolve it.',
             'If a refund is issued to the original payment method, timing depends on Stripe, your bank, or the payment provider.',
