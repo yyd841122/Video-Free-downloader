@@ -59,10 +59,31 @@ function normalizeBilibiliUrl(parsed) {
   return parsed.toString()
 }
 
+function normalizeDouyinModalId(parsed) {
+  const modalId = parsed.searchParams.get('modal_id')
+  if (modalId && /^\d+$/.test(modalId)) {
+    const out = new URL(parsed.origin)
+    out.pathname = `/video/${modalId}`
+    return out.toString()
+  }
+  return null
+}
+
 function normalizeDouyinUrl(parsed) {
+  const modalNormalized = normalizeDouyinModalId(parsed)
+  if (modalNormalized) {
+    return modalNormalized
+  }
+
+  const path = parsed.pathname || '/'
+  if (/^\/video\/\d+$/.test(path)) {
+    parsed.search = ''
+    parsed.hash = ''
+    return parsed.toString()
+  }
+
   parsed.search = ''
   parsed.hash = ''
-  const path = parsed.pathname || '/'
   parsed.pathname = path.endsWith('/') ? path : `${path}/`
   return parsed.toString()
 }

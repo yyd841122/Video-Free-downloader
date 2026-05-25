@@ -61,8 +61,29 @@ def _normalize_bilibili(parts) -> str:
     return urlunsplit(new_parts)
 
 
+def _normalize_douyin_modal_id(parts) -> str | None:
+    from urllib.parse import parse_qs
+
+    modal_id_values = parse_qs(parts.query or "").get("modal_id")
+    if not modal_id_values:
+        return None
+    modal_id = modal_id_values[0]
+    if not re.fullmatch(r"\d+", modal_id):
+        return None
+    new_parts = parts._replace(path=f"/video/{modal_id}", query="", fragment="")
+    return urlunsplit(new_parts)
+
+
 def _normalize_douyin(parts) -> str:
+    modal_result = _normalize_douyin_modal_id(parts)
+    if modal_result:
+        return modal_result
+
     path = parts.path or "/"
+    if re.match(r"^/video/\d+$", path):
+        new_parts = parts._replace(query="", fragment="", path=path)
+        return urlunsplit(new_parts)
+
     if not path.endswith("/"):
         path = f"{path}/"
     new_parts = parts._replace(query="", fragment="", path=path)

@@ -46,6 +46,36 @@ def main() -> int:
     check("douyin_share_text", douyin_in, "https://v.douyin.com/gq_pGPyTAyw/")
 
     check(
+        "douyin_jingxuan_modal_id",
+        "https://www.douyin.com/jingxuan?modal_id=7643509713572777266",
+        "https://www.douyin.com/video/7643509713572777266",
+    )
+
+    check(
+        "douyin_jingxuan_modal_id_extra_params",
+        "https://www.douyin.com/jingxuan?modal_id=7643509713572777266&previous_page=app_code_link",
+        "https://www.douyin.com/video/7643509713572777266",
+    )
+
+    check(
+        "douyin_short_link",
+        "https://v.douyin.com/RkYdrHyJWek/",
+        "https://v.douyin.com/RkYdrHyJWek/",
+    )
+
+    check(
+        "douyin_video_direct",
+        "https://www.douyin.com/video/7643509713572777266",
+        "https://www.douyin.com/video/7643509713572777266",
+    )
+
+    check(
+        "douyin_non_numeric_modal_id",
+        "https://www.douyin.com/jingxuan?modal_id=abc123",
+        "https://www.douyin.com/jingxuan/",
+    )
+
+    check(
         "x_query",
         "https://x.com/realDonaldTrump/status/2057968277062582378?s=20",
         "https://x.com/realDonaldTrump/status/2057968277062582378",
