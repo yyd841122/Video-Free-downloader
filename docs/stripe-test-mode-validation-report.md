@@ -10,9 +10,10 @@
 |---|---|
 | 首轮验收日期 | 2026-05-24 |
 | 补充验收日期 | 2026-05-24（同日后续轮次） |
-| 验收阶段 | Stripe Test Mode 联调（首轮 + 补充） |
+| resume checkout 验收日期 | 2026-05-24（P1 修复部署后） |
+| 验收阶段 | Stripe Test Mode 联调（首轮 + 补充 + resume checkout） |
 | 关联文档 | [stripe-test-mode-setup.md](./stripe-test-mode-setup.md) |
-| 关联 commit | P0 硬化 `22ce6a6`；设置文档 `11b4ba4`；本报告 `8596100` |
+| 关联 commit | P0 硬化 `22ce6a6`；设置文档 `11b4ba4`；本报告 `8596100`；resume checkout `7c718c6` |
 
 ---
 
@@ -115,6 +116,7 @@ P0 支付安全硬化（commit `22ce6a6`）在生产环境验收通过：
 | 8.3 | 订单列表展示 | ✅ 已通过 | 新 Stripe 订单「已支付」且无 MOCK；历史 Mock 订单仍带 MOCK 标签 |
 | 8.4 | 扩展套餐订单创建 | ✅ 已通过 | **monthly / quarterly / yearly** 均可创建 Stripe 订单；pending 显示「继续支付」 |
 | 8.5 | 续费叠加 | ✅ 已通过 | 再次购买月度后，会员有效期在原有基础上继续延长 |
+| 8.12 | **待支付订单继续支付（resume checkout）** | ✅ 已通过 | `/account` pending Stripe 订单点「继续支付」→ 直接跳转 Stripe Checkout；不再跳转 `/pricing`（commit `7c718c6`） |
 | — | 主链路 Checkout + Webhook + paid | ✅ 已通过 | 见第 5–7 节 |
 | — | P0 安全硬化 | ✅ 已通过 | 见第 4 节 |
 
@@ -161,7 +163,7 @@ P0 支付安全硬化（commit `22ce6a6`）在生产环境验收通过：
 |---|---|
 | 新 Stripe 订单 | ✅ 状态「已支付」，**无 MOCK 标签** |
 | 历史 Mock 订单 | ✅ 仍显示 **MOCK** 标签，便于区分测试数据 |
-| pending 订单操作 | ✅ 显示「继续支付」（Stripe pending 跳转 pricing；Mock pending 走 mock-pay，生产已无 mock 路由） |
+| pending 订单操作 | ✅ 显示「继续支付」；Stripe pending 调用 resume-checkout API 后跳转 Stripe Checkout（不再跳转 `/pricing`）；Mock pending 仍走 mock-pay（生产 mock-pay 404，仅历史 Mock 订单可见） |
 
 ### 9.4 扩展套餐与续费
 
@@ -172,6 +174,22 @@ P0 支付安全硬化（commit `22ce6a6`）在生产环境验收通过：
 | quarterly / yearly 完整支付 | ⏳ 待测（见 8.2） |
 | lifetime 订单 / 支付 | ⏳ 待测（见 8.2） |
 | 续费叠加（monthly 再买 monthly） | ✅ 会员有效期在原有基础上 **继续延长** |
+
+### 9.5 待支付订单继续支付（resume checkout）
+
+P1 修复（commit `7c718c6` fix(payment): resume Stripe checkout for pending orders）部署后验收：
+
+| 检查项 | 结果 |
+|---|---|
+| 后端已部署并重启 | ✅ |
+| `GET /api/billing/mode` | ✅ 仍为 `"mock": false` |
+| `POST /api/billing/mock/pay/foo` | ✅ 仍为 **404** |
+| `/account` → 我的订单 → pending Stripe 订单 | ✅ 显示「继续支付」 |
+| 点击「继续支付」 | ✅ **直接跳转 Stripe Hosted Checkout** |
+| 错误跳转 `/pricing` | ✅ **已修复**，不再发生 |
+| API 路径 | `POST /api/billing/orders/{order_no}/resume-checkout`（复用 pending 订单，新建 Checkout Session） |
+
+**结论：** **resume checkout flow 已通过**；Account 待支付 Stripe 订单可正常恢复支付，与 pricing 页首次下单体验一致。
 
 ---
 
@@ -188,10 +206,11 @@ P0 支付安全硬化（commit `22ce6a6`）在生产环境验收通过：
 - ✅ **VIP 高清下载**（1920p）不再被 720p 门禁拦截
 - ✅ **续费叠加** 正确（再次购买 monthly 延长有效期）
 - ✅ **monthly / quarterly / yearly** Stripe 订单可创建
+- ✅ **待支付订单继续支付（resume checkout）**：Account pending Stripe 订单 → Stripe Checkout（不再跳转 `/pricing`）
 
 ### 总体评估
 
-**Stripe Test Mode 主链路、会员发放、订单状态、高清下载权限、续费叠加均已通过。**
+**Stripe Test Mode 主链路、会员发放、订单状态、高清下载权限、续费叠加、resume checkout 均已通过。**
 
 当前状态适合：
 
@@ -220,7 +239,7 @@ P0 支付安全硬化（commit `22ce6a6`）在生产环境验收通过：
 
 | 顺序 | 动作 | 说明 |
 |---|---|---|
-| 1 | **补齐 Test 剩余项** | quarterly / yearly / lifetime 完整支付；cancel flow |
+| 1 | **补齐 Test 剩余项** | quarterly / yearly / lifetime 完整支付；cancel flow（resume checkout 已通过） |
 | 2 | **Live Dashboard 配置** | Live Product + 4 Price + Webhook endpoint |
 | 3 | **更新 `.env` 为 Live 密钥** | 按 [stripe-test-mode-setup.md 第 14 节](./stripe-test-mode-setup.md#14-test-mode-到-live-mode-切换提醒) |
 | 4 | **退款政策与支付文案** | 法律页 + pricing trust 文案最终版 |
@@ -246,6 +265,7 @@ P0 支付安全硬化（commit `22ce6a6`）在生产环境验收通过：
 [✅] VIP 1920p 高清下载权限生效
 [✅] monthly / quarterly / yearly 可创建 Stripe 订单
 [✅] 续费叠加（再次 monthly 延长有效期）
+[✅] Account pending Stripe 订单「继续支付」→ Stripe Checkout（resume checkout，commit 7c718c6）
 
 仍待完成
 [ ] quarterly / yearly 完整 Test 支付
@@ -259,4 +279,4 @@ P0 支付安全硬化（commit `22ce6a6`）在生产环境验收通过：
 
 ---
 
-*报告版本：首轮（2026-05-24）+ 补充验收（2026-05-24）。不含任何密钥、secret 或完整 Price ID。*
+*报告版本：首轮（2026-05-24）+ 补充验收（2026-05-24）+ resume checkout 验收（2026-05-24，commit 7c718c6）。不含任何密钥、secret 或完整 Price ID。*
