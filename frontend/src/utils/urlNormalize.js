@@ -62,9 +62,7 @@ function normalizeBilibiliUrl(parsed) {
 function normalizeDouyinModalId(parsed) {
   const modalId = parsed.searchParams.get('modal_id')
   if (modalId && /^\d+$/.test(modalId)) {
-    const out = new URL(parsed.origin)
-    out.pathname = `/video/${modalId}`
-    return out.toString()
+    return `https://www.iesdouyin.com/share/video/${modalId}/`
   }
   return null
 }

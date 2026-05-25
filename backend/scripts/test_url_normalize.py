@@ -48,13 +48,13 @@ def main() -> int:
     check(
         "douyin_jingxuan_modal_id",
         "https://www.douyin.com/jingxuan?modal_id=7643509713572777266",
-        "https://www.douyin.com/video/7643509713572777266",
+        "https://www.iesdouyin.com/share/video/7643509713572777266/",
     )
 
     check(
         "douyin_jingxuan_modal_id_extra_params",
         "https://www.douyin.com/jingxuan?modal_id=7643509713572777266&previous_page=app_code_link",
-        "https://www.douyin.com/video/7643509713572777266",
+        "https://www.iesdouyin.com/share/video/7643509713572777266/",
     )
 
     check(

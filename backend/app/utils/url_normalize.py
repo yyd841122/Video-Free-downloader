@@ -70,7 +70,13 @@ def _normalize_douyin_modal_id(parts) -> str | None:
     modal_id = modal_id_values[0]
     if not re.fullmatch(r"\d+", modal_id):
         return None
-    new_parts = parts._replace(path=f"/video/{modal_id}", query="", fragment="")
+    new_parts = parts._replace(
+        scheme="https",
+        netloc="www.iesdouyin.com",
+        path=f"/share/video/{modal_id}/",
+        query="",
+        fragment="",
+    )
     return urlunsplit(new_parts)
 
 
