@@ -14,7 +14,7 @@ SaveAny 已完成 MVP 核心功能开发与多轮线上验证，当前处于 **�
 | 模块 | 状态 | 说明 |
 |------|------|------|
 | 首页解析 / 下载 | ✅ 可用 | B 站 / 抖音 / X / mp4 直链为主链路 |
-| URL 清洗 | ✅ 可用 | B 站参数、抖音分享文案、X `?s=20` 等 |
+| URL 清洗 | ✅ 可用 | B 站参数、抖音分享文案 / 地址栏 `modal_id`、X `?s=20` 等 |
 | 粘贴按钮 | ✅ 可用 | 一键从剪贴板填入并清洗链接 |
 | B 站扫码登录 | ✅ 可用 | 未登录态解析 B 站需先扫码 |
 | 免费 720p 下载 | ✅ 可用 | 已修复 format_id 误判为超高清的问题 |
@@ -39,7 +39,7 @@ SaveAny 已完成 MVP 核心功能开发与多轮线上验证，当前处于 **�
 - 粘贴或输入视频链接 / 分享文案，点击「解析视频」
 - 使用「粘贴」按钮从剪贴板一键填入并清洗 URL
 - B 站：扫码登录后解析；支持带 `spm` / `vd_source` 的长链清洗
-- 抖音：支持整段分享文案提取 `v.douyin.com` 短链
+- 抖音：支持整段分享文案提取 `v.douyin.com` 短链；支持地址栏 `jingxuan?modal_id=` 链接（normalize 为 `iesdouyin.com/share/video/{id}/`，详见 [video-url-normalization-validation.md](./video-url-normalization-validation.md)）
 - X：支持去掉 `?s=20` 等 query
 - 免费用户：720p 及以下清晰度下载
 - 会员用户（Mock 开通）：1080p / 更高清晰度（视平台与源视频）、批量下载
@@ -132,6 +132,7 @@ SaveAny 已完成 MVP 核心功能开发与多轮线上验证，当前处于 **�
 
 - [ ] **B 站** 带 `spm`/`vd_source` 长链 → 粘贴或点「粘贴」→ 清洗为干净 BV 链接 → 扫码登录 → 解析成功
 - [ ] **抖音** 整段分享文案 → 提取 `v.douyin.com` 短链 → 解析成功
+- [ ] **抖音** 地址栏 `jingxuan?modal_id=` 链接 → normalize 为 `iesdouyin.com/share/video/{id}/` → 解析 + 下载成功（2026-05-25 生产已验，见 [video-url-normalization-validation.md](./video-url-normalization-validation.md)）
 - [ ] **X** 带 `?s=20` 链接 → query 被去掉 → 解析成功
 - [ ] **mp4 直链**（如有）→ 可解析 / 下载
 
@@ -244,6 +245,15 @@ SaveAny 已完成 MVP 核心功能开发与多轮线上验证，当前处于 **�
 2. **测试期 3–5 天**，每日汇总 P0/P1；YouTube/AI 类问题按分级规则记录
 3. 内测结束前开 **30 分钟复盘**：是否扩到 10 人 / 是否切真实支付 / 是否启动 AI 接入排期
 4. **在确认无 P0/P1 且反馈可接受前**，不要公开大规模推广或对外承诺完整产品能力
+
+---
+
+## URL Normalize 验收记录（2026-05-25）
+
+- **commit `2f3d87f`** 已部署生产；Cloudflare Pages 前端已同步。
+- 抖音地址栏 `https://www.douyin.com/jingxuan?modal_id=7643509713572777266` → normalize 为 `https://www.iesdouyin.com/share/video/7643509713572777266/` → 线上解析 + 下载成功。
+- `v.douyin.com` 分享短链回归正常。
+- 详情见 [video-url-normalization-validation.md](./video-url-normalization-validation.md)。
 
 ---
 
