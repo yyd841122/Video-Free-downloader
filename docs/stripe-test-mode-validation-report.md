@@ -11,7 +11,8 @@
 | 首轮验收日期 | 2026-05-24 |
 | 补充验收日期 | 2026-05-24（同日后续轮次） |
 | resume checkout 验收日期 | 2026-05-24（P1 修复部署后） |
-| 验收阶段 | Stripe Test Mode 联调（首轮 + 补充 + resume checkout） |
+| cancel flow 验收日期 | 2026-05-24 |
+| 验收阶段 | Stripe Test Mode 联调（首轮 + 补充 + resume checkout + cancel flow） |
 | 关联文档 | [stripe-test-mode-setup.md](./stripe-test-mode-setup.md) |
 | 关联 commit | P0 硬化 `22ce6a6`；设置文档 `11b4ba4`；本报告 `8596100`；resume checkout `7c718c6` |
 
@@ -117,6 +118,7 @@ P0 支付安全硬化（commit `22ce6a6`）在生产环境验收通过：
 | 8.4 | 扩展套餐订单创建 | ✅ 已通过 | **monthly / quarterly / yearly** 均可创建 Stripe 订单；pending 显示「继续支付」 |
 | 8.5 | 续费叠加 | ✅ 已通过 | 再次购买月度后，会员有效期在原有基础上继续延长 |
 | 8.12 | **待支付订单继续支付（resume checkout）** | ✅ 已通过 | `/account` pending Stripe 订单点「继续支付」→ 直接跳转 Stripe Checkout；不再跳转 `/pricing`（commit `7c718c6`） |
+| 8.8 | **Cancel flow（Checkout 取消/返回）** | ✅ 已通过 | 用户在 Stripe Checkout 取消后回跳；订单保持 pending；支付时间为空；仍可「继续支付」；VIP 未错误增加 |
 | — | 主链路 Checkout + Webhook + paid | ✅ 已通过 | 见第 5–7 节 |
 | — | P0 安全硬化 | ✅ 已通过 | 见第 4 节 |
 
@@ -124,9 +126,8 @@ P0 支付安全硬化（commit `22ce6a6`）在生产环境验收通过：
 
 | # | 验证项 | 建议方法 | 优先级 |
 |---|---|---|---|
-| 8.6 | **quarterly / yearly 完整支付** | 各完成一笔 Test 支付 → 订单 paid + VIP 时长叠加正确 | P1 |
-| 8.7 | **lifetime checkout** | 选终身套餐 → 支付 → 确认 `is_lifetime_vip=true` | P1 |
-| 8.8 | **cancel flow** | Checkout 取消 → `/payment/cancel` → 订单 pending/canceled/expired | P1 |
+| 8.6 | **quarterly / yearly 完整支付** | 各完成一笔 Test 支付 → 订单 paid + VIP 时长叠加正确 | P1（可选剩余项） |
+| 8.7 | **lifetime checkout** | 选终身套餐 → 支付 → 确认 `is_lifetime_vip=true` | P1（可选剩余项） |
 | 8.9 | **PaymentSuccess 轮询边界** | webhook 延迟 >30s 时 success 页与 Account 刷新体验 | P2 |
 | 8.10 | **async_payment 事件** | 启用 Alipay/WeChat Pay 时验证 async_* webhook | P1（启用异步支付时） |
 | 8.11 | **Webhook 幂等** | Dashboard 重发同一 event，VIP 不重复累加 | P2 |
@@ -191,6 +192,21 @@ P1 修复（commit `7c718c6` fix(payment): resume Stripe checkout for pending or
 
 **结论：** **resume checkout flow 已通过**；Account 待支付 Stripe 订单可正常恢复支付，与 pricing 页首次下单体验一致。
 
+### 9.6 Cancel Flow 验收（Checkout 取消/返回）
+
+用户在 Stripe Hosted Checkout 页面取消或返回后的验收结果：
+
+| 检查项 | 结果 |
+|---|---|
+| 进入 Stripe Checkout 后取消 / 返回 | ✅ 正常回跳（`/payment/cancel` 或等价取消路径） |
+| Account 订单状态 | ✅ 保持 **待支付 / pending**（未误标 paid 或 canceled） |
+| 支付时间 | ✅ **为空**（未记录错误支付时间） |
+| 订单操作 | ✅ 仍显示 **「继续支付」** |
+| VIP 有效期 | ✅ **未错误增加**（取消未触发会员发放） |
+| resume checkout 联动 | ✅ 同一 pending 订单可通过「继续支付」再次进入 Stripe Checkout |
+
+**结论：** **cancel flow 已通过**；Checkout 取消不会误发 VIP，pending 订单可继续通过 resume checkout 完成支付。
+
 ---
 
 ## 10. 当前结论
@@ -207,14 +223,15 @@ P1 修复（commit `7c718c6` fix(payment): resume Stripe checkout for pending or
 - ✅ **续费叠加** 正确（再次购买 monthly 延长有效期）
 - ✅ **monthly / quarterly / yearly** Stripe 订单可创建
 - ✅ **待支付订单继续支付（resume checkout）**：Account pending Stripe 订单 → Stripe Checkout（不再跳转 `/pricing`）
+- ✅ **Cancel flow**：Checkout 取消后订单保持 pending、支付时间为空、仍可继续支付、VIP 未错误增加
 
 ### 总体评估
 
-**Stripe Test Mode 主链路、会员发放、订单状态、高清下载权限、续费叠加、resume checkout 均已通过。**
+**Stripe Test Mode 主链路、resume checkout、cancel flow、VIP 发放、高清下载权限均已通过。**
 
 当前状态适合：
 
-- 团队内部继续使用 Test Mode 做剩余套餐与 cancel 流程验证
+- 团队内部继续使用 Test Mode 做可选剩余项（quarterly / yearly / lifetime 完整支付）
 - 并行准备 Live Mode 配置与合规文案
 
 ### Live Mode 前仍待完成
@@ -239,7 +256,7 @@ P1 修复（commit `7c718c6` fix(payment): resume Stripe checkout for pending or
 
 | 顺序 | 动作 | 说明 |
 |---|---|---|
-| 1 | **补齐 Test 剩余项** | quarterly / yearly / lifetime 完整支付；cancel flow（resume checkout 已通过） |
+| 1 | **补齐 Test 可选剩余项** | quarterly / yearly / lifetime 完整支付（cancel flow、resume checkout 已通过） |
 | 2 | **Live Dashboard 配置** | Live Product + 4 Price + Webhook endpoint |
 | 3 | **更新 `.env` 为 Live 密钥** | 按 [stripe-test-mode-setup.md 第 14 节](./stripe-test-mode-setup.md#14-test-mode-到-live-mode-切换提醒) |
 | 4 | **退款政策与支付文案** | 法律页 + pricing trust 文案最终版 |
@@ -266,11 +283,11 @@ P1 修复（commit `7c718c6` fix(payment): resume Stripe checkout for pending or
 [✅] monthly / quarterly / yearly 可创建 Stripe 订单
 [✅] 续费叠加（再次 monthly 延长有效期）
 [✅] Account pending Stripe 订单「继续支付」→ Stripe Checkout（resume checkout，commit 7c718c6）
+[✅] Stripe Checkout cancel flow：订单 pending、支付时间为空、仍可继续支付、VIP 未错误增加
 
-仍待完成
+仍待完成（可选 Test 剩余项 + Live Mode 前）
 [ ] quarterly / yearly 完整 Test 支付
 [ ] lifetime checkout + is_lifetime_vip
-[ ] cancel flow
 [ ] Live Mode Product / Price / Webhook
 [ ] Live key 配置 + 小额真实支付验证
 [ ] 退款政策 + 支付文案复查
@@ -279,4 +296,4 @@ P1 修复（commit `7c718c6` fix(payment): resume Stripe checkout for pending or
 
 ---
 
-*报告版本：首轮（2026-05-24）+ 补充验收（2026-05-24）+ resume checkout 验收（2026-05-24，commit 7c718c6）。不含任何密钥、secret 或完整 Price ID。*
+*报告版本：首轮（2026-05-24）+ 补充验收（2026-05-24）+ resume checkout 验收（2026-05-24，commit 7c718c6）+ cancel flow 验收（2026-05-24）。不含任何密钥、secret 或完整 Price ID。*
