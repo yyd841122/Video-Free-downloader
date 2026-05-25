@@ -94,9 +94,23 @@ export default {
     selectFormat: 'Choose quality & format',
     vipTag: 'VIP',
     downloadNow: 'Download now',
+    downloadSubmitting: 'Submitting download task...',
+    downloadConnecting: 'Connecting to video source, please wait...',
+    downloadPreparingFile: 'Preparing download file, please wait...',
+    downloadLargeFileProcessing: 'Processing large file, please be patient...',
     downloadServerProcessing: 'Processing on server {percent}%',
     downloadProgressHint:
       'The server is downloading and merging the video. Your browser save dialog will open when it is ready.',
+    downloadProgressHintConnecting:
+      'Connecting to the video source and preparing the download. Your browser save dialog will open when it is ready.',
+    downloadProgressHintLarge:
+      'This large file is still downloading and merging. It may take longer—please keep this page open. Your browser save dialog will open when it is ready.',
+    downloadLargeFileHint:
+      'This file is large. Server-side download and merging may take longer. Keep this page open. If it fails, try 720p or lower quality.',
+    downloadLongVideoHint:
+      'This video is long. Server-side download and merging may take longer. Keep this page open. If it fails, try 720p or lower quality.',
+    downloadSourceInterruptedError:
+      'The source connection was interrupted. Please retry later or choose a lower quality.',
     downloadReadyOpening: 'Download is ready. Opening the save dialog…',
     aiSummary: 'AI summary Beta',
     aiSummaryComingSoon:

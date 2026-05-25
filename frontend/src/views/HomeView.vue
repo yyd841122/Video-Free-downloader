@@ -20,6 +20,9 @@ import { useUserStore } from '../stores/user'
 import { AI_SUMMARY_MVP_ENABLED } from '../constants/mvp'
 import { normalizeUserVideoInput } from '../utils/urlNormalize'
 
+const LARGE_DOWNLOAD_BYTES = 300 * 1024 * 1024
+const LONG_VIDEO_SECONDS = 20 * 60
+
 const userStore = useUserStore()
 const router = useRouter()
 const route = useRoute()
@@ -135,15 +138,85 @@ const downloadProgress = computed(() => {
   const value = Number(task.value?.progress || 0)
   return Math.min(100, Math.max(0, Math.round(value)))
 })
+
+const parseByteSize = (value) => {
+  const num = Number(value)
+  return Number.isFinite(num) && num > 0 ? num : 0
+}
+
+const selectedFormatBytes = computed(() => {
+  const picked = formatChoices.value.find((item) => item.id === selectedFormat.value)
+  return parseByteSize(picked?.size)
+})
+
+const videoDurationSeconds = computed(() => parseByteSize(info.value?.duration))
+
+const isLargeDownloadFile = computed(() => selectedFormatBytes.value >= LARGE_DOWNLOAD_BYTES)
+
+const isLongDownloadVideo = computed(() => videoDurationSeconds.value >= LONG_VIDEO_SECONDS)
+
+const isLargeOrLongDownload = computed(() => isLargeDownloadFile.value || isLongDownloadVideo.value)
+
+const showDownloadSizeWarning = computed(
+  () => Boolean(info.value && selectedFormat.value && isLargeOrLongDownload.value),
+)
+
+const downloadSizeWarningText = computed(() => {
+  if (!showDownloadSizeWarning.value) {
+    return ''
+  }
+  if (isLargeDownloadFile.value) {
+    return t('home.downloadLargeFileHint')
+  }
+  return t('home.downloadLongVideoHint')
+})
+
 const showDownloadProgress = computed(() =>
   ['queued', 'starting', 'downloading', 'processing', 'completed'].includes(task.value?.status),
 )
 const showDownloadProgressHint = computed(() => downloading.value || taskInProgress.value)
-const downloadButtonLabel = computed(() => {
-  if (downloading.value || taskInProgress.value) {
-    return t('home.downloadServerProcessing', { percent: downloadProgress.value })
+
+const downloadProgressHintText = computed(() => {
+  if (!showDownloadProgressHint.value) {
+    return ''
   }
-  return t('home.downloadNow')
+  if (taskInProgress.value && downloadProgress.value <= 0) {
+    if (isLargeOrLongDownload.value) {
+      return t('home.downloadProgressHintLarge')
+    }
+    return t('home.downloadProgressHintConnecting')
+  }
+  return t('home.downloadProgressHint')
+})
+
+const downloadButtonLabel = computed(() => {
+  if (!downloading.value && !taskInProgress.value) {
+    return t('home.downloadNow')
+  }
+
+  const status = task.value?.status
+  const progress = downloadProgress.value
+
+  if (downloading.value && !task.value) {
+    return t('home.downloadSubmitting')
+  }
+
+  if (!status || status === 'queued') {
+    return t('home.downloadConnecting')
+  }
+
+  if (status === 'processing') {
+    if (progress <= 0 || progress >= 99) {
+      return t('home.downloadPreparingFile')
+    }
+    return t('home.downloadServerProcessing', { percent: progress })
+  }
+
+  if (progress <= 0) {
+    return isLargeOrLongDownload.value ? t('home.downloadLargeFileProcessing') : t('home.downloadConnecting')
+  }
+
+  return t('home.downloadServerProcessing', { percent: progress })
 })
 const aiProgress = computed(() => {
   if (aiTask.value?.status === 'completed' || aiTask.value?.status === 'no_transcript') {
@@ -662,6 +735,22 @@ const setFormatVipInlineHint = () => {
   inlineHints.value.download = t('home.formatVipInline')
 }
 
+const looksLikeSourceConnectionInterruptedError = (message) =>
+  /incompleteread|connection broken|remote end closed connection|read timed out|reset by peer|connection reset|broken pipe|视频源连接中断|source connection was interrupted/i.test(
+    String(message || ''),
+  )
+
+const downloadErrorText = computed(() => {
+  const raw = task.value?.error || ''
+  if (!raw) {
+    return ''
+  }
+  if (looksLikeSourceConnectionInterruptedError(raw)) {
+    return t('home.downloadSourceInterruptedError')
+  }
+  return raw
+})
+
 const showAiSummaryComingSoon = () => {
   inlineHints.value.ai = t('home.aiSummaryComingSoon')
   inlineHintLogin.value.ai = false
@@ -672,6 +761,10 @@ const resolveUserFacingError = (err) => {
   if (looksLikeAppLoginRequiredError(message)) {
     setLoginRequiredError()
     return error.value
+  }
+  if (looksLikeSourceConnectionInterruptedError(message)) {
+    loginActionVisible.value = false
+    return t('home.downloadSourceInterruptedError')
   }
   loginActionVisible.value = false
   return message
@@ -1702,6 +1795,10 @@ const startBiliLogin = async () => {
         </p>
       </div>
 
+      <p v-if="showDownloadSizeWarning" class="download-size-hint" role="status">
+        {{ downloadSizeWarningText }}
+      </p>
+
       <div class="download-footer">
         <button class="download-button" :class="{ 'is-loading': downloading || taskInProgress }" :disabled="!canDownload" type="button" @click="downloadSelected">
           <span v-if="downloading || taskInProgress" class="button-loading-dots" aria-hidden="true">
@@ -1775,7 +1872,7 @@ const startBiliLogin = async () => {
           <RouterLink to="/register">{{ t('nav.register') }}</RouterLink>
         </span>
       </p>
-      <p v-if="showDownloadProgressHint" class="download-progress-hint">{{ t('home.downloadProgressHint') }}</p>
+      <p v-if="showDownloadProgressHint" class="download-progress-hint">{{ downloadProgressHintText }}</p>
       <p class="download-legal-hint">
         {{ t('home.downloadLegalHint') }}
         <RouterLink to="/legal/copyright">{{ t('home.downloadLegalLink') }}</RouterLink>
@@ -1789,7 +1886,7 @@ const startBiliLogin = async () => {
         </span>
         <span>{{ aiEstimateHint }}<span class="loading-ellipsis"></span></span>
       </p>
-      <p v-if="task?.status === 'failed'" class="download-error">{{ task.error }}</p>
+      <p v-if="task?.status === 'failed'" class="download-error">{{ downloadErrorText }}</p>
       <p v-else-if="task?.download_url" class="download-success">{{ t('home.downloadReadyOpening') }}</p>
     </div>
 

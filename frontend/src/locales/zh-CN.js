@@ -93,8 +93,21 @@ export default {
     selectFormat: '选择清晰度和格式',
     vipTag: '会员',
     downloadNow: '立即下载',
+    downloadSubmitting: '正在提交下载任务...',
+    downloadConnecting: '正在连接视频源，请稍候...',
+    downloadPreparingFile: '正在准备下载文件，请稍候...',
+    downloadLargeFileProcessing: '大文件处理中，请耐心等待...',
     downloadServerProcessing: '服务器处理中 {percent}%',
     downloadProgressHint: '正在由服务器下载并合并视频，完成后会自动打开浏览器保存窗口。',
+    downloadProgressHintConnecting: '正在连接视频源并准备下载，请稍候。完成后会自动打开浏览器保存窗口。',
+    downloadProgressHintLarge:
+      '大文件正在下载与合并，可能需要较长时间。请保持页面打开，完成后会自动打开浏览器保存窗口。',
+    downloadLargeFileHint:
+      '当前文件较大，服务器下载与合并可能需要较长时间。请保持页面打开；如果失败，可尝试选择 720p 或更低清晰度。',
+    downloadLongVideoHint:
+      '当前视频较长，服务器下载与合并可能需要更长时间。请保持页面打开；如果失败，可尝试选择 720p 或更低清晰度。',
+    downloadSourceInterruptedError:
+      '视频源连接中断，未能完整下载该大文件。请稍后重试，或选择较低清晰度。',
     downloadReadyOpening: '下载已准备好，正在打开保存窗口…',
     aiSummary: 'AI 总结 Beta',
     aiSummaryComingSoon:

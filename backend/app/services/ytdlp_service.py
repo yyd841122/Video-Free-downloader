@@ -30,8 +30,18 @@ DOUYIN_MOBILE_UA = (
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 )
 DOUYIN_FALLBACK_RATIOS = ("1080p", "720p", "540p", "origin")
-DOUYIN_DOWNLOAD_ATTEMPTS = 4
+DOUYIN_DOWNLOAD_ATTEMPTS = 6
 DOUYIN_CHUNK_SIZE = 1024 * 1024
+DOUYIN_READ_TIMEOUT_SECONDS = 120
+SOURCE_CONNECTION_INTERRUPTED_MARKERS = (
+    "incompleteread",
+    "connection broken",
+    "remote end closed connection",
+    "read timed out",
+    "reset by peer",
+    "connection reset",
+    "broken pipe",
+)
 
 
 class YtdlpWarningLogger:
@@ -81,8 +91,51 @@ def base_ytdlp_options() -> dict[str, Any]:
         "fragment_retries": 10,
         "extractor_retries": 5,
         "file_access_retries": 5,
+        "continuedl": True,
         "http_chunk_size": 10 * 1024 * 1024,
     }
+
+
+def is_source_connection_interrupted_error(exc: Exception | str) -> bool:
+    text = str(exc).lower()
+    return any(marker in text for marker in SOURCE_CONNECTION_INTERRUPTED_MARKERS)
+
+
+def source_connection_interrupted_message() -> str:
+    return (
+        "视频源连接中断，服务器未能完整下载该大文件。请稍后重试，或选择 720p / 更低清晰度；"
+        "长视频和大文件更容易出现该问题。"
+    )
+
+
+def humanize_download_error(exc: Exception | str, *, url: str | None = None) -> str:
+    text = str(exc).strip()
+    if not text:
+        return "下载失败，请稍后重试。"
+
+    if url and is_wechat_channels_url(url) and isinstance(exc, Exception) and is_unsupported_url_error(exc):
+        return wechat_channels_unsupported_message()
+
+    if is_source_connection_interrupted_error(text):
+        return source_connection_interrupted_message()
+
+    if text.startswith("抖音下载多次重试仍失败"):
+        inner = text.split("：", 1)[-1].strip() if "：" in text else text
+        if is_source_connection_interrupted_error(inner):
+            return source_connection_interrupted_message()
+
+    if "下载任务超时" in text or "视频文件超过当前下载大小限制" in text:
+        return text
+
+    if is_requested_format_unavailable_error(exc if isinstance(exc, Exception) else RuntimeError(text)):
+        return format_unavailable_user_message()
+
+    if "UNEXPECTED_EOF_WHILE_READING" in text or "SSL" in text.upper():
+        return "网络连接异常，请稍后重试"
+    if "ConnectionResetError" in text or "timeout" in text.lower():
+        return "网络连接异常，请稍后重试"
+
+    return text[:320] + ("..." if len(text) > 320 else "")
 
 
 def apply_url_headers(options: dict[str, Any], url: str) -> None:
@@ -761,7 +814,7 @@ def download_douyin_share_task(task_id: str, url: str, task_dir: Path, format_ch
             with requests.get(
                 media_url,
                 headers=request_headers,
-                timeout=(20, 45),
+                timeout=(30, DOUYIN_READ_TIMEOUT_SECONDS),
                 stream=True,
                 allow_redirects=True,
             ) as response:
@@ -795,17 +848,30 @@ def download_douyin_share_task(task_id: str, url: str, task_dir: Path, format_ch
 
             if output_path.stat().st_size >= 1024 and (not total or output_path.stat().st_size >= total):
                 break
-        except (requests.RequestException, OSError) as exc:
+        except Exception as exc:
             last_error = exc
+            DOWNLOAD_LOGGER.warning(
+                "Douyin download attempt %d/%d interrupted: %s",
+                attempt,
+                DOUYIN_DOWNLOAD_ATTEMPTS,
+                exc,
+            )
             task_store.update(
                 task_id,
                 status="downloading",
                 filename=filename,
                 error=f"下载连接不稳定，正在重试 {attempt}/{DOUYIN_DOWNLOAD_ATTEMPTS}...",
             )
+            if attempt < DOUYIN_DOWNLOAD_ATTEMPTS:
+                time.sleep(min(2 * attempt, 8))
             continue
     else:
-        raise RuntimeError(f"抖音下载多次重试仍失败：{last_error}")
+        DOWNLOAD_LOGGER.warning(
+            "Douyin download failed after %d attempts: %s",
+            DOUYIN_DOWNLOAD_ATTEMPTS,
+            last_error,
+        )
+        raise RuntimeError(humanize_download_error(last_error or "unknown"))
 
     if output_path.stat().st_size < 1024 or (total and output_path.stat().st_size < total):
         raise RuntimeError("抖音下载结果异常，未获得完整视频文件。")
@@ -841,7 +907,13 @@ def download_video_task(
         try:
             download_douyin_share_task(task_id, url, task_dir, format_choice)
         except Exception as exc:
-            task_store.update(task_id, status="failed", error=str(exc), speed=None, eta=None)
+            task_store.update(
+                task_id,
+                status="failed",
+                error=humanize_download_error(exc, url=url),
+                speed=None,
+                eta=None,
+            )
         finally:
             if cookie_file:
                 cookie_file.unlink(missing_ok=True)
@@ -992,17 +1064,7 @@ def download_video_task(
             break
 
     if last_exc is not None:
-        error_text = str(last_exc)
-        if is_wechat_channels_url(url) and is_unsupported_url_error(last_exc):
-            friendly_error = wechat_channels_unsupported_message()
-        elif is_requested_format_unavailable_error(last_exc):
-            friendly_error = format_unavailable_user_message()
-        elif "UNEXPECTED_EOF_WHILE_READING" in error_text or "SSL" in error_text.upper():
-            friendly_error = "网络连接异常，请稍后重试"
-        elif "ConnectionResetError" in error_text or "timeout" in error_text.lower():
-            friendly_error = "网络连接异常，请稍后重试"
-        else:
-            friendly_error = error_text
+        friendly_error = humanize_download_error(last_exc, url=url)
         task_store.update(task_id, status="failed", error=friendly_error, speed=None, eta=None)
 
     if cookie_file:
