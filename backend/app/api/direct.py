@@ -209,8 +209,12 @@ def proxy_direct(token: str, request: Request) -> StreamingResponse:
         if value:
             response_headers[key] = value
     filename = safe_download_name(link.title)
-    response_headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(filename)}"
-
     media_type = upstream.headers.get("Content-Type") or "application/octet-stream"
+    if media_type.startswith("image/"):
+        response_headers["Content-Disposition"] = f'inline; filename="{quote(filename)}"'
+        response_headers.setdefault("Cache-Control", "public, max-age=3600")
+    else:
+        response_headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(filename)}"
+
     status_code = 206 if range_header else 200
     return StreamingResponse(iterator(), status_code=status_code, media_type=media_type, headers=response_headers)

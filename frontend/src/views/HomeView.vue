@@ -79,6 +79,7 @@ const batchLoading = ref(false)
 const batchResults = ref([])
 const BATCH_ACTIVE_STATUSES = ['queued', 'starting', 'downloading', 'processing']
 const coverLoadFailed = ref(false)
+const coverUseDirectFallback = ref(false)
 const selectedTranscriptFormat = ref('txt')
 const transcriptDownloadOpen = ref(false)
 const BILI_AUTH_STORAGE_KEY = 'saveany:bili-auth-session'
@@ -124,12 +125,31 @@ const platformWarnings = computed(() => info.value?.warnings || [])
 // 因此这里显式 resolveApiUrl 把相对路径拼成后端绝对地址，再让 <img> 去取。
 // 非代理的 info.thumbnail 通常是平台 CDN 绝对地址（http(s)://...），resolveApiUrl 会原样返回。
 const coverImageUrl = computed(() => {
+  if (coverUseDirectFallback.value && info.value?.thumbnail) {
+    return info.value.thumbnail
+  }
   const proxy = info.value?.thumbnail_proxy_url
   if (proxy) {
     return resolveApiUrl(proxy)
   }
   return info.value?.thumbnail || ''
 })
+
+const showCoverUnavailable = computed(
+  () => coverLoadFailed.value || !coverImageUrl.value,
+)
+
+const onCoverError = () => {
+  if (
+    !coverUseDirectFallback.value &&
+    info.value?.thumbnail &&
+    info.value?.thumbnail_proxy_url
+  ) {
+    coverUseDirectFallback.value = true
+    return
+  }
+  coverLoadFailed.value = true
+}
 const heroCompact = computed(() => Boolean(info.value && url.value.trim()))
 const downloadProgress = computed(() => {
   if (task.value?.status === 'completed') {
@@ -678,6 +698,7 @@ const resetResult = () => {
   transcriptExpanded.value = false
   activeAiTab.value = 'summary'
   coverLoadFailed.value = false
+  coverUseDirectFallback.value = false
   downloading.value = false
   if (pollingTimer.value) {
     window.clearInterval(pollingTimer.value)
@@ -1734,11 +1755,21 @@ const startBiliLogin = async () => {
         <div class="cover-wrap">
           <img
             v-if="coverImageUrl && !coverLoadFailed"
+            :key="coverImageUrl"
             :src="coverImageUrl"
             :alt="t('home.coverAlt')"
-            @error="coverLoadFailed = true"
+            loading="lazy"
+            decoding="async"
+            @error="onCoverError"
           />
-          <div v-else class="thumbnail-empty"></div>
+          <div
+            v-else-if="showCoverUnavailable"
+            class="thumbnail-unavailable"
+            role="img"
+            :aria-label="t('home.coverUnavailable')"
+          >
+            <span>{{ t('home.coverUnavailable') }}</span>
+          </div>
           <span v-if="info.duration" class="duration-badge">{{ formatDuration(info.duration) }}</span>
         </div>
         <div class="summary-copy">

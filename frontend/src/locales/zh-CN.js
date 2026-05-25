@@ -87,6 +87,7 @@ export default {
       'YouTube 对服务器请求有额外验证。即使提供 cookies.txt，也可能无法解析。你可以稍后重试，或先使用 Bilibili、抖音、X 等平台。',
     resultAria: '解析结果',
     coverAlt: '视频封面',
+    coverUnavailable: '封面暂不可用',
     untitledVideo: '未命名视频',
     unknownUploader: '未知作者',
     durationPrefix: '时长',

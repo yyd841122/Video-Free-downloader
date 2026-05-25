@@ -88,6 +88,7 @@ export default {
       'YouTube applies extra verification to server requests. Even with cookies.txt, parsing may still fail. Try again later, or use Bilibili, Douyin, X, and other platforms first.',
     resultAria: 'Parse result',
     coverAlt: 'Video thumbnail',
+    coverUnavailable: 'Cover unavailable',
     untitledVideo: 'Untitled video',
     unknownUploader: 'Unknown uploader',
     durationPrefix: 'Duration',
