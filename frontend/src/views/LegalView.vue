@@ -6,12 +6,19 @@ import { RouterLink, useRoute } from 'vue-router'
 const route = useRoute()
 const { t, tm } = useI18n()
 
+const SUPPORT_EMAIL = 'support@cozyguidehub.com'
+
 const legalKey = computed(() => route.meta.legalKey || 'privacy')
 
 const sections = computed(() => {
   const raw = tm(`legal.${legalKey.value}.sections`)
   return Array.isArray(raw) ? raw : []
 })
+
+function legalText(text) {
+  if (typeof text !== 'string') return text
+  return text.replace(/\{supportEmail\}/g, SUPPORT_EMAIL)
+}
 </script>
 
 <template>
@@ -24,9 +31,9 @@ const sections = computed(() => {
 
     <section v-for="(section, index) in sections" :key="index" class="legal-section">
       <h2>{{ section.title }}</h2>
-      <p v-for="(para, pIdx) in section.paragraphs" :key="pIdx">{{ para }}</p>
+      <p v-for="(para, pIdx) in section.paragraphs" :key="pIdx">{{ legalText(para) }}</p>
       <ul v-if="section.items?.length">
-        <li v-for="(item, iIdx) in section.items" :key="iIdx">{{ item }}</li>
+        <li v-for="(item, iIdx) in section.items" :key="iIdx">{{ legalText(item) }}</li>
       </ul>
     </section>
   </article>

@@ -298,6 +298,7 @@ export default {
     terms: '用户协议',
     copyright: '版权说明',
     contact: '联系我们',
+    contactWithEmail: '联系我们：{email}',
     contactEmail: "support{'@'}cozyguidehub.com",
     rights: '© {year} SaveAny. 请合法、合理使用本服务。',
   },
@@ -351,12 +352,12 @@ export default {
         {
           title: '您的权利',
           paragraphs: [
-            '您可申请导出或删除账户及相关数据（法律要求保留的订单记录除外）。请通过 support{\'@\'}cozyguidehub.com 或您注册邮箱联系我们。',
+            '您可申请导出或删除账户及相关数据（法律要求保留的订单记录除外）。请通过 {supportEmail} 或您注册邮箱联系我们。',
           ],
         },
         {
           title: '联系我们',
-          paragraphs: ['如有隐私或支付相关问题，请发送邮件至 support{\'@\'}cozyguidehub.com，并注明您的注册邮箱与订单号（如适用）。'],
+          paragraphs: ['如有隐私或支付相关问题，请发送邮件至 {supportEmail}，并注明您的注册邮箱与订单号（如适用）。'],
         },
       ],
     },
@@ -398,7 +399,7 @@ export default {
             '购买前请确认套餐内容、价格、会员期限和功能限制。',
             '若会员权益已开通，或您已使用会员下载、高清下载、批量下载等权益，通常不予退款。',
             '如出现重复扣款、支付成功但会员未开通、订单状态异常等明显账单问题，可联系客服人工核查。',
-            '联系时请提供注册邮箱、订单号、付款时间和问题说明，发送至 support{\'@\'}cozyguidehub.com。',
+            '联系时请提供注册邮箱、订单号、付款时间和问题说明，发送至 {supportEmail}。',
             '我们通常会在 5–10 个工作日内回复。',
             '经核查确认为系统或账单异常的，我们会协助处理。',
             '如涉及原路退回，到账时间以 Stripe、银行或支付渠道处理为准。',

@@ -37,6 +37,9 @@ const handleLogout = () => {
   closeMenu()
   router.push('/')
 }
+
+const SUPPORT_EMAIL = 'support@cozyguidehub.com'
+const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`
 </script>
 
 <template>
@@ -103,7 +106,7 @@ const handleLogout = () => {
         <RouterLink to="/legal/privacy">{{ t('footer.privacy') }}</RouterLink>
         <RouterLink to="/legal/terms">{{ t('footer.terms') }}</RouterLink>
         <RouterLink to="/legal/copyright">{{ t('footer.copyright') }}</RouterLink>
-        <a :href="`mailto:${t('footer.contactEmail')}`">{{ t('footer.contact') }}</a>
+        <a :href="SUPPORT_MAILTO">{{ t('footer.contactWithEmail', { email: SUPPORT_EMAIL }) }}</a>
       </nav>
       <p class="footer-rights">{{ t('footer.rights', { year: new Date().getFullYear() }) }}</p>
     </footer>
