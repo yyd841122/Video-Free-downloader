@@ -106,6 +106,44 @@ def get_order(
     return _to_public_order(order)
 
 
+@router.post("/orders/{order_no}/resume-checkout", response_model=CheckoutResponse)
+def resume_checkout(
+    order_no: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CheckoutResponse:
+    """为已有 pending Stripe 订单重新创建 Checkout Session，不新建订单。"""
+
+    order = get_order_by_no(db, order_no)
+    if not order or order.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="订单不存在")
+
+    if order.is_mock:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Mock 订单请使用模拟支付页")
+
+    if order.status == "paid":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="订单已支付")
+    if order.status == "canceled":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="订单已取消，请重新下单")
+    if order.status == "expired":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="订单已过期，请重新下单")
+    if order.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"订单状态 {order.status} 无法继续支付",
+        )
+
+    plan = get_plan(db, order.plan_code)
+    if not plan or not plan.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="套餐不存在或已下架")
+
+    try:
+        url = create_stripe_checkout_session(db, user, plan, order)
+    except PaymentError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    return CheckoutResponse(order_no=order.order_no, checkout_url=url, mode="stripe")
+
+
 @router.post("/webhook")
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)) -> dict:
     raw_payload = await request.body()

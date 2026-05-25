@@ -26,6 +26,7 @@ Covered cases (1..13):
 19) P0 hardening: webhook metadata.plan_code mismatch is rejected
 20) P0 hardening: async_payment_succeeded grants VIP; async_payment_failed cancels pending
 21) P0 hardening: ENABLE_MOCK_PAY_ROUTE controls route registration
+22) resume-checkout: pending Stripe order resumes without creating new order
 """
 
 from __future__ import annotations
@@ -658,6 +659,129 @@ def run_all(client) -> None:
         f"  {INFO} 生产环境（APP_ENV=production / ENABLE_MOCK_PAY_ROUTE=false）下，"
         f"该路由在 backend/app/api/billing.py 模块导入期即不会被注册到 router；"
         f"完整集成验证建议在子进程里跑（避免污染当前 TestClient 的全局 app）。"
+    )
+
+    # ============== 22. resume-checkout：pending Stripe 订单继续支付 ==============
+    print("\n[22] resume-checkout API")
+    from unittest.mock import patch
+
+    from app.api import billing as billing_api
+    from app.services import payment_service as ps
+
+    r = client.get("/api/users/me", headers=headers)
+    owner_id = r.json()["id"]
+
+    def _fake_stripe_session(db, user, plan, order):
+        order.stripe_session_id = f"cs_resume_{uuid.uuid4().hex[:8]}"
+        db.add(order)
+        db.commit()
+        return "https://checkout.stripe.com/c/pay/test_resume"
+
+    resume_order_no = f"RESUME{uuid.uuid4().hex[:6].upper()}"
+    with session_scope() as db:
+        db.add(
+            Order(
+                order_no=resume_order_no,
+                user_id=owner_id,
+                plan_code="monthly",
+                plan_name="月度会员",
+                amount_cents=1900,
+                currency="cny",
+                status="pending",
+                stripe_session_id=f"cs_old_{uuid.uuid4().hex[:6]}",
+                is_mock=0,
+                vip_granted_days=30,
+            )
+        )
+
+    r = client.post("/api/billing/orders/RESUMENOEXIST/resume-checkout", headers=headers)
+    assert_eq(r.status_code, 404, "不存在订单 resume 404")
+
+    r = client.post(f"/api/billing/orders/{resume_order_no}/resume-checkout")
+    assert_eq(r.status_code, 401, "未登录 resume 401")
+
+    r = client.post(f"/api/billing/orders/{resume_order_no}/resume-checkout", headers=free_headers)
+    assert_eq(r.status_code, 404, "非本人订单 resume 404")
+
+    stripe_paid_no = f"PAIDSTR{uuid.uuid4().hex[:4].upper()}"
+    with session_scope() as db:
+        db.add(
+            Order(
+                order_no=stripe_paid_no,
+                user_id=owner_id,
+                plan_code="monthly",
+                plan_name="月度会员",
+                amount_cents=1900,
+                currency="cny",
+                status="paid",
+                paid_at=int(time.time()),
+                is_mock=0,
+                vip_granted_days=30,
+            )
+        )
+    r = client.post(f"/api/billing/orders/{stripe_paid_no}/resume-checkout", headers=headers)
+    assert_eq(r.status_code, 400, "已 paid Stripe 订单 resume 400")
+    assert_true("已支付" in r.json()["detail"], "paid 订单错误信息")
+
+    stripe_canceled_no = f"CXLSTRIPE{uuid.uuid4().hex[:4].upper()}"
+    with session_scope() as db:
+        db.add(
+            Order(
+                order_no=stripe_canceled_no,
+                user_id=owner_id,
+                plan_code="monthly",
+                plan_name="月度会员",
+                amount_cents=1900,
+                currency="cny",
+                status="canceled",
+                is_mock=0,
+                vip_granted_days=30,
+            )
+        )
+    r = client.post(f"/api/billing/orders/{stripe_canceled_no}/resume-checkout", headers=headers)
+    assert_eq(r.status_code, 400, "已 canceled Stripe 订单 resume 400")
+    assert_true("取消" in r.json()["detail"], "canceled 订单错误信息")
+
+    mock_resume_no = f"MOCKRES{uuid.uuid4().hex[:4].upper()}"
+    with session_scope() as db:
+        db.add(
+            Order(
+                order_no=mock_resume_no,
+                user_id=owner_id,
+                plan_code="monthly",
+                plan_name="月度会员",
+                amount_cents=1900,
+                currency="cny",
+                status="pending",
+                is_mock=1,
+                vip_granted_days=30,
+            )
+        )
+    r = client.post(f"/api/billing/orders/{mock_resume_no}/resume-checkout", headers=headers)
+    assert_eq(r.status_code, 400, "mock pending 订单 resume 400")
+
+    with session_scope() as db:
+        order_count_before = db.query(Order).filter(Order.user_id == owner_id).count()
+
+    with patch.object(billing_api, "create_stripe_checkout_session", side_effect=_fake_stripe_session):
+        r = client.post(f"/api/billing/orders/{resume_order_no}/resume-checkout", headers=headers)
+    assert_eq(r.status_code, 200, "pending Stripe 订单 resume 200")
+    body = r.json()
+    assert_eq(body["mode"], "stripe", "resume 模式 stripe")
+    assert_eq(body["order_no"], resume_order_no, "resume 不新建订单号")
+    assert_true(body["checkout_url"].startswith("https://checkout.stripe.com"), "返回 checkout_url")
+
+    with session_scope() as db:
+        order_count_after = db.query(Order).filter(Order.user_id == owner_id).count()
+        resumed = db.query(Order).filter(Order.order_no == resume_order_no).one()
+        resumed_session_id = resumed.stripe_session_id
+    assert_eq(order_count_before, order_count_after, "resume 不增加订单数量")
+    assert_true(resumed_session_id.startswith("cs_resume_"), "stripe_session_id 已更新")
+
+    routes_paths = {getattr(r, "path", None) for r in app.routes}
+    assert_true(
+        "/api/billing/orders/{order_no}/resume-checkout" in routes_paths,
+        "resume-checkout 路由已注册",
     )
 
 

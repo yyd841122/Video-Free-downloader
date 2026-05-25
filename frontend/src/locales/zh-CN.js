@@ -566,6 +566,8 @@ export default {
     colPaid: '支付时间',
     colAction: '操作',
     continuePay: '继续支付',
+    resumePayProcessing: '跳转支付中…',
+    resumePayFailed: '继续支付失败，请稍后重试',
     statusPending: '待支付',
     statusPaid: '已支付',
     statusCanceled: '已取消',

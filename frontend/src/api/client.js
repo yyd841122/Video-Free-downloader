@@ -206,6 +206,9 @@ export const fetchOrders = () => request('/api/billing/orders')
 
 export const fetchOrder = (orderNo) => request(`/api/billing/orders/${orderNo}`)
 
+export const resumeCheckout = (orderNo) =>
+  request(`/api/billing/orders/${orderNo}/resume-checkout`, { method: 'POST', body: JSON.stringify({}) })
+
 export const mockPay = (orderNo, outcome) =>
   request(`/api/billing/mock/pay/${orderNo}`, {
     method: 'POST',

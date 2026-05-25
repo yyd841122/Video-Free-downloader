@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
-import { fetchOrders, fetchQuota, fetchTaskHistory, resolveApiUrl } from '../api/client'
+import { fetchOrders, fetchQuota, fetchTaskHistory, resolveApiUrl, resumeCheckout } from '../api/client'
 import { AI_SUMMARY_MVP_ENABLED } from '../constants/mvp'
 import { useUserStore } from '../stores/user'
 
@@ -17,6 +17,7 @@ const loading = ref(true)
 const historyLoading = ref(true)
 const error = ref('')
 const historyError = ref('')
+const resumeLoading = ref('')
 
 const statusLabel = computed(() => ({
   pending: t('account.statusPending'),
@@ -136,11 +137,23 @@ const loadOrders = async () => {
   }
 }
 
-const continuePay = (order) => {
+const continuePay = async (order) => {
   if (order.is_mock) {
     router.push({ name: 'mock-pay', query: { order_no: order.order_no } })
-  } else {
-    router.push({ name: 'pricing' })
+    return
+  }
+  if (order.status !== 'pending') {
+    return
+  }
+  resumeLoading.value = order.order_no
+  error.value = ''
+  try {
+    const data = await resumeCheckout(order.order_no)
+    window.location.href = data.checkout_url
+  } catch (err) {
+    error.value = err.message || t('account.resumePayFailed')
+  } finally {
+    resumeLoading.value = ''
   }
 }
 
@@ -306,8 +319,18 @@ onMounted(async () => {
             <td>{{ formatTime(order.created_at) }}</td>
             <td>{{ formatTime(order.paid_at) }}</td>
             <td>
-              <button v-if="order.status === 'pending'" type="button" class="link-btn" @click="continuePay(order)">
-                {{ t('account.continuePay') }}
+              <button
+                v-if="order.status === 'pending'"
+                type="button"
+                class="link-btn"
+                :disabled="resumeLoading === order.order_no"
+                @click="continuePay(order)"
+              >
+                {{
+                  resumeLoading === order.order_no
+                    ? t('account.resumePayProcessing')
+                    : t('account.continuePay')
+                }}
               </button>
               <span v-else>{{ t('pricing.dash') }}</span>
             </td>

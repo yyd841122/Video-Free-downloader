@@ -567,6 +567,8 @@ export default {
     colPaid: 'Paid at',
     colAction: 'Action',
     continuePay: 'Continue payment',
+    resumePayProcessing: 'Redirecting to checkout…',
+    resumePayFailed: 'Could not resume payment. Please try again.',
     statusPending: 'Pending',
     statusPaid: 'Paid',
     statusCanceled: 'Canceled',
