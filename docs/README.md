@@ -11,6 +11,9 @@
 | 本地跑起来 | [保姆级本地运行指南.md](./保姆级本地运行指南.md) |
 | 了解做到哪、还缺什么 | [项目现状与开发路线图.md](./项目现状与开发路线图.md) |
 | 买服务器、正式上线 | [生产部署清单.md](./生产部署清单.md) |
+| Soft Launch 内测协调 | [mvp-soft-launch-test-guide.md](./mvp-soft-launch-test-guide.md) |
+| AI 总结 MVP 验收与边界 | [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) |
+| AI 总结测试样本记录 | [ai-summary-test-samples.md](./ai-summary-test-samples.md) |
 | 产品与会员需求背景 | [需求分析.md](./需求分析.md) |
 | 早期 API/架构设计（部分已演进） | [方案设计.md](./方案设计.md) / [SOLUTION_DESIGN.md](./SOLUTION_DESIGN.md) |
 
@@ -44,6 +47,9 @@
 | [codex-handoff.md](./codex-handoff.md) | Codex 交接（UI 阶段，**部分过时**） |
 | [GIT_CHANGELOG.md](./GIT_CHANGELOG.md) | Git 变更记录 |
 | [SEO 优化记录.md](./SEO%20优化记录.md) | 首页 SEO 已做项与未做项 |
+| [mvp-soft-launch-test-guide.md](./mvp-soft-launch-test-guide.md) | Soft Launch 内测指南、任务清单、反馈模板 |
+| [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) | AI 总结 MVP 能力边界与验收清单 |
+| [ai-summary-test-samples.md](./ai-summary-test-samples.md) | AI 总结测试样本与结果记录模板 |
 
 ---
 

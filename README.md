@@ -53,6 +53,10 @@ http://localhost:5173
 
 ## 项目文档
 
+- [文档索引](docs/README.md)
+- [Soft Launch 内测指南](docs/mvp-soft-launch-test-guide.md)
+- [AI 总结 MVP 验收](docs/ai-summary-mvp-validation.md)
+- [AI 总结测试样本](docs/ai-summary-test-samples.md)
 - [需求分析文档](docs/REQUIREMENTS_ANALYSIS.md)
 - [方案设计文档](docs/SOLUTION_DESIGN.md)
 - [AI 协作上下文](docs/AI_CONTEXT.md)

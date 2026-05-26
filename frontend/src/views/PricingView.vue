@@ -73,6 +73,7 @@ const buy = async (planCode) => {
       <p>{{ t('pricing.subtitle') }}</p>
       <p v-if="vipExpireText" class="vip-current">{{ vipExpireText }}</p>
       <p v-if="billingMode.mock" class="mode-tip">{{ t('pricing.mockModeTip') }}</p>
+      <p v-else class="mode-tip">{{ t('pricing.stripeTestModeTip') }}</p>
     </header>
 
     <p v-if="error" class="pricing-error">{{ error }}</p>

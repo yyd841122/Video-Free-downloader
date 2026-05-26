@@ -310,7 +310,7 @@ onMounted(async () => {
           <tr v-for="order in orders" :key="order.order_no">
             <td class="mono">
               {{ order.order_no }}
-              <span v-if="order.is_mock" class="mock-tag">MOCK</span>
+              <span v-if="order.is_mock" class="mock-tag">{{ t('account.orderDevCheckoutTag') }}</span>
             </td>
             <td>{{ order.plan_name }}</td>
             <td class="amount">{{ order.amount_display }}</td>
