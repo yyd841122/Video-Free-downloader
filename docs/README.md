@@ -13,6 +13,9 @@
 | 买服务器、正式上线 | [生产部署清单.md](./生产部署清单.md) |
 | Soft Launch 内测协调 | [mvp-soft-launch-test-guide.md](./mvp-soft-launch-test-guide.md) |
 | 邀请内测志愿者、发放内测包 | [soft-launch-invite-package.md](./soft-launch-invite-package.md) |
+| Beta 反馈登记与日报 | [beta-feedback-log.md](./beta-feedback-log.md) |
+| 平台兼容性样本与回归清单 | [platform-compatibility-samples.md](./platform-compatibility-samples.md) |
+| Soft Launch 通过后 Beta 路线 | [post-soft-launch-roadmap.md](./post-soft-launch-roadmap.md) |
 | AI 总结 MVP 验收与边界 | [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) |
 | AI 总结测试样本记录 | [ai-summary-test-samples.md](./ai-summary-test-samples.md) |
 | 产品与会员需求背景 | [需求分析.md](./需求分析.md) |
@@ -52,6 +55,9 @@
 | [soft-launch-invite-package.md](./soft-launch-invite-package.md) | Soft Launch 内测邀请包：内测目标、可测功能、限制、测试支付说明、推荐测试流程和反馈模板 |
 | [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) | AI 总结 MVP 能力边界与验收清单 |
 | [ai-summary-test-samples.md](./ai-summary-test-samples.md) | AI 总结测试样本与结果记录模板 |
+| [post-soft-launch-roadmap.md](./post-soft-launch-roadmap.md) | Soft Launch 通过归档与 Beta 阶段路线图 |
+| [beta-feedback-log.md](./beta-feedback-log.md) | Beta 反馈收集表、等级定义与扩大测试判断标准 |
+| [platform-compatibility-samples.md](./platform-compatibility-samples.md) | 平台兼容性样本库与回归测试清单 |
 
 ---
 
