@@ -47,3 +47,4 @@ downloads/
 backend/downloads/
 backend/data/*.bak
 backend/data/*.backup
+backend/data/audit/

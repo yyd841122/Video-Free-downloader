@@ -21,6 +21,39 @@ def generate_order_no() -> str:
     return f"FVD{int(time.time())}{secrets.token_hex(4).upper()}"
 
 
+def generate_manual_order_no() -> str:
+    """人工开通 VIP 订单号，与 Stripe FVD* 订单区分。"""
+
+    return f"MAN{int(time.time())}{secrets.token_hex(4).upper()}"
+
+
+def create_manual_pending_order(
+    db: Session,
+    user: User,
+    plan: Plan,
+    *,
+    manual_grant_id: str,
+) -> Order:
+    """创建待支付的人工订单（is_mock=0，供 mark_order_paid 发放 VIP）。"""
+
+    order = Order(
+        order_no=generate_manual_order_no(),
+        user_id=user.id,
+        plan_code=plan.code,
+        plan_name=plan.name,
+        amount_cents=plan.price_cents,
+        currency=plan.currency,
+        status="pending",
+        is_mock=0,
+        vip_granted_days=plan.duration_days,
+        stripe_event_id=f"manual-grant-{manual_grant_id}",
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 def create_pending_order(db: Session, user: User, plan: Plan, is_mock: bool) -> Order:
     order = Order(
         order_no=generate_order_no(),
