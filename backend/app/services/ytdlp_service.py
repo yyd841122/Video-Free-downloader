@@ -17,6 +17,7 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from app.core.config import DEFAULT_FORMAT, DOWNLOAD_DIR, MAX_DOWNLOAD_BYTES, MAX_DOWNLOAD_SECONDS
+from app.services.storage_guard import StoragePressureError, check_storage_before_large_download, is_likely_large_download
 from app.models.schemas import FormatInfo, VideoInfoResponse
 from app.services.direct_link_store import DirectLink, direct_link_store
 from app.services.task_store import task_store
@@ -939,6 +940,13 @@ def download_video_task(
     cookies: str | None = None,
     browser_cookies: str | None = None,
 ) -> None:
+    if is_likely_large_download(format_choice):
+        try:
+            check_storage_before_large_download()
+        except StoragePressureError as exc:
+            task_store.update(task_id, status="failed", error=exc.message_zh, speed=None, eta=None)
+            return
+
     task_dir = DOWNLOAD_DIR / task_id
     task_dir.mkdir(parents=True, exist_ok=True)
     output_template = str(task_dir / "%(title).160B [%(id)s].%(ext)s")

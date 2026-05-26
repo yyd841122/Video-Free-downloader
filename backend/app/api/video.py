@@ -29,6 +29,7 @@ from app.models.schemas import (
 from app.services.history_service import record_task_created
 from app.services.bilibili_auth_store import bili_auth_store
 from app.services.quota_service import QuotaExceededError, check_concurrent_download, check_resolution_allowed
+from app.services.storage_guard import StoragePressureError, check_storage_before_large_download, is_likely_large_download
 from app.services.task_meta import write_task_meta
 from app.services.task_store import task_store
 from app.services.ytdlp_service import download_video_task, extract_direct_link, extract_info
@@ -283,6 +284,11 @@ def _start_download_job(
         check_resolution_allowed(user, _guess_height_from_format(format_choice))
     except QuotaExceededError as exc:
         raise HTTPException(status_code=402, detail=str(exc)) from exc
+    if is_likely_large_download(format_choice):
+        try:
+            check_storage_before_large_download()
+        except StoragePressureError as exc:
+            raise HTTPException(status_code=503, detail=exc.message_zh) from exc
     task = task_store.create(url, user_id=user.id if user else None)
     write_task_meta(task.task_id, user)
     if user is not None:

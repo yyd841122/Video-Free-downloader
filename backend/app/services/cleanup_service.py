@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from app.core.config import DOWNLOAD_CLEANUP_INTERVAL_SECONDS, DOWNLOAD_CLEANUP_MAX_AGE_SECONDS, DOWNLOAD_DIR
+from app.services.storage_guard import run_storage_guard_cycle
 from app.services.task_meta import read_task_meta
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def _max_age_for_path(path: Path) -> tuple[float, float]:
 
 
 def cleanup_downloads_once(now: float | None = None) -> int:
-    """Remove expired task directories from the downloads folder."""
+    """Remove expired task directories, then run disk/downloads guard if needed."""
     current = now or time.time()
     removed = 0
     if not DOWNLOAD_DIR.exists():
@@ -47,7 +48,9 @@ def cleanup_downloads_once(now: float | None = None) -> int:
             removed += 1
         except OSError as exc:
             logger.warning("Failed to cleanup download artifact %s: %s", path, exc)
-    return removed
+
+    guard_result = run_storage_guard_cycle(now=current)
+    return removed + guard_result.normal_deleted + guard_result.emergency_deleted
 
 
 def _cleanup_loop() -> None:
