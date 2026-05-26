@@ -49,6 +49,10 @@ class VideoInfoResponse(BaseModel):
     extractor: str | None = None
     formats: list[FormatInfo] = []
     warnings: list[str] = []
+    has_subtitles: bool | None = None
+    subtitle_status: Literal["available", "unavailable", "unknown"] = "unknown"
+    subtitle_languages: list[str] = Field(default_factory=list)
+    subtitle_source: Literal["manual", "automatic", "none", "unknown"] = "unknown"
     raw: dict[str, Any] | None = None
 
 

@@ -717,6 +717,44 @@ def infer_access_warnings(info: dict[str, Any], warnings: list[str] | None = Non
     return list(dict.fromkeys(merged))
 
 
+def infer_subtitle_metadata(info: dict[str, Any]) -> dict[str, Any]:
+    """Infer subtitle availability from yt-dlp extract_info metadata only."""
+    manual = info.get("subtitles")
+    automatic = info.get("automatic_captions")
+    manual_dict = manual if isinstance(manual, dict) else None
+    auto_dict = automatic if isinstance(automatic, dict) else None
+
+    manual_langs = sorted(
+        lang for lang, entries in (manual_dict or {}).items() if isinstance(entries, list) and entries
+    )
+    auto_langs = sorted(
+        lang for lang, entries in (auto_dict or {}).items() if isinstance(entries, list) and entries
+    )
+
+    if manual_langs or auto_langs:
+        return {
+            "has_subtitles": True,
+            "subtitle_status": "available",
+            "subtitle_languages": sorted(set(manual_langs + auto_langs)),
+            "subtitle_source": "manual" if manual_langs else "automatic",
+        }
+
+    if manual_dict is not None or auto_dict is not None:
+        return {
+            "has_subtitles": False,
+            "subtitle_status": "unavailable",
+            "subtitle_languages": [],
+            "subtitle_source": "none",
+        }
+
+    return {
+        "has_subtitles": None,
+        "subtitle_status": "unknown",
+        "subtitle_languages": [],
+        "subtitle_source": "unknown",
+    }
+
+
 def build_info_response(info: dict[str, Any], include_raw: bool = False, warnings: list[str] | None = None) -> VideoInfoResponse:
     raw = None
     if include_raw:
@@ -725,6 +763,7 @@ def build_info_response(info: dict[str, Any], include_raw: bool = False, warning
             "extractor_key": info.get("extractor_key"),
             "webpage_url": info.get("webpage_url"),
         }
+    subtitle_meta = infer_subtitle_metadata(info)
     return VideoInfoResponse(
         title=info.get("title"),
         webpage_url=info.get("webpage_url"),
@@ -735,6 +774,10 @@ def build_info_response(info: dict[str, Any], include_raw: bool = False, warning
         extractor=info.get("extractor_key") or info.get("extractor"),
         formats=normalize_formats(info),
         warnings=infer_access_warnings(info, warnings),
+        has_subtitles=subtitle_meta["has_subtitles"],
+        subtitle_status=subtitle_meta["subtitle_status"],
+        subtitle_languages=subtitle_meta["subtitle_languages"],
+        subtitle_source=subtitle_meta["subtitle_source"],
         raw=raw,
     )
 

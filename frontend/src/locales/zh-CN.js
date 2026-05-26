@@ -120,11 +120,21 @@ export default {
     downloadDone: '下载已完成，已自动开始保存到本地。',
     downloadLegalHint: '请仅下载您有权保存的内容。详见',
     downloadLegalLink: '版权说明',
-    aiPanelAria: 'AI 视频总结（Beta / 即将开放）',
+    aiPanelAria: 'AI 视频总结（Beta）',
+    aiSummaryHint:
+      'AI 总结会优先使用平台字幕；如果暂无字幕，可上传 SRT / VTT 字幕文件。自动转文字功能即将开放。',
+    subtitleStatusAvailable: '已检测到字幕，可使用 AI 总结。',
+    subtitleStatusUnavailable:
+      '暂未检测到字幕。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
+    subtitleStatusUnknown:
+      'AI 总结会优先尝试提取平台字幕；如果没有字幕，可上传 SRT / VTT 字幕文件。',
+    subtitleStatusDetected: '已检测到字幕，可使用 AI 总结。',
+    subtitleStatusNone:
+      '暂未检测到字幕。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
     noTranscript:
-      '当前视频没有可提取的平台字幕或自动字幕。你可以上传 SRT/VTT 字幕文件后继续生成 AI 总结。',
+      '该视频暂无可用字幕。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
     noTranscriptAsrFailed:
-      '当前视频没有可提取的平台字幕，语音转写也未成功。你可以上传 SRT/VTT 字幕文件后继续生成 AI 总结。',
+      '该视频暂无可用字幕，语音转写也未成功。你可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
     aiResultTabs: 'AI 生成结果',
     summaryExportAria: '总结导出操作',
     transcriptTitle: '字幕文本',

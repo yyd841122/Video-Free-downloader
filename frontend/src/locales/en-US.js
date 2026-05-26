@@ -123,11 +123,21 @@ export default {
     downloadDone: 'Download complete. Saving to your device.',
     downloadLegalHint: 'Only download content you are entitled to save. See',
     downloadLegalLink: 'Copyright notice',
-    aiPanelAria: 'AI video summary (Beta / coming soon)',
+    aiPanelAria: 'AI video summary (Beta)',
+    aiSummaryHint:
+      'AI summary uses platform subtitles first. If no subtitles are available, you can upload an SRT/VTT subtitle file. Auto transcription is coming soon.',
+    subtitleStatusAvailable: 'Subtitles detected. AI summary is available.',
+    subtitleStatusUnavailable:
+      'No subtitles were detected. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to generate a summary.',
+    subtitleStatusUnknown:
+      'AI summary will try platform subtitles first. If none are available, you can upload an SRT/VTT subtitle file.',
+    subtitleStatusDetected: 'Subtitles detected. AI summary is available.',
+    subtitleStatusNone:
+      'No subtitles were detected. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to generate a summary.',
     noTranscript:
-      'No platform or auto-generated subtitles found. Upload an SRT/VTT file to continue with AI summary.',
+      'No usable subtitles were found for this video. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to continue AI summary.',
     noTranscriptAsrFailed:
-      'No platform subtitles found and speech-to-text failed. Upload an SRT/VTT file to continue with AI summary.',
+      'No usable subtitles were found for this video, and speech-to-text did not succeed. You can upload an SRT/VTT subtitle file to continue AI summary.',
     aiResultTabs: 'AI results',
     summaryExportAria: 'Summary export actions',
     transcriptTitle: 'Transcript',

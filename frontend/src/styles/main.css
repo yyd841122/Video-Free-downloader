@@ -718,8 +718,33 @@ fieldset legend,
 }
 
 .download-inline-hint,
-.ai-inline-hint {
+.ai-inline-hint,
+.ai-summary-hint {
   max-width: 100%;
+}
+
+.ai-summary-hint {
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #35507a;
+  background: #f4f8ff;
+  border: 1px solid #d6e4ff;
+  border-radius: 14px;
+}
+
+.ai-summary-hint.warning {
+  color: #8a3b12;
+  background: #fff8f0;
+  border-color: #ffe2c2;
+}
+
+.ai-summary-button.is-unavailable {
+  opacity: 0.72;
+  border-color: #c8d4ea;
+  background: #f5f8fd;
+  color: #607089;
 }
 
 .inline-action-links {
