@@ -532,6 +532,10 @@ export default {
     registerSubmitting: '注册中…',
     registerFailed: '注册失败',
     emailRequired: '请输入邮箱',
+    emailInvalid: '请输入有效邮箱地址。',
+    emailPlaceholderBlocked: '请使用真实邮箱注册，测试邮箱或占位邮箱不可用。',
+    registerEmailHint:
+      '请使用真实邮箱注册。订单、会员和账号找回都将使用该邮箱。',
     passwordMin: '密码至少 6 位',
     noAccount: '还没有账号？',
     registerNow: '立即注册',

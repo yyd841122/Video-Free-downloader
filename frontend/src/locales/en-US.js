@@ -535,6 +535,11 @@ export default {
     registerSubmitting: 'Signing up…',
     registerFailed: 'Sign up failed',
     emailRequired: 'Please enter your email',
+    emailInvalid: 'Please enter a valid email address.',
+    emailPlaceholderBlocked:
+      'Please use a real email address. Test or placeholder emails are not allowed.',
+    registerEmailHint:
+      'Please use a real email address. Orders, membership and account recovery will use this email.',
     passwordMin: 'Password must be at least 6 characters',
     noAccount: "Don't have an account?",
     registerNow: 'Sign up',

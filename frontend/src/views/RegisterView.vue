@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
+import { getRegisterEmailErrorKey, isRegisterEmailApiError } from '../utils/emailValidation'
 
 const { t } = useI18n()
 const userStore = useUserStore()
@@ -13,12 +14,32 @@ const email = ref('')
 const password = ref('')
 const nickname = ref('')
 const error = ref('')
+const emailError = ref('')
 const loading = ref(false)
+
+const emailErrorMessage = (key) => {
+  if (key === 'required') return t('auth.emailRequired')
+  if (key === 'invalid') return t('auth.emailInvalid')
+  if (key === 'placeholder') return t('auth.emailPlaceholderBlocked')
+  return ''
+}
+
+const validateEmailField = () => {
+  const key = getRegisterEmailErrorKey(email.value)
+  emailError.value = key ? emailErrorMessage(key) : ''
+  return !key
+}
+
+const onEmailInput = () => {
+  if (emailError.value) {
+    validateEmailField()
+  }
+}
 
 const submit = async () => {
   error.value = ''
-  if (!email.value.trim()) {
-    error.value = t('auth.emailRequired')
+  emailError.value = ''
+  if (!validateEmailField()) {
     return
   }
   if ((password.value || '').length < 6) {
@@ -31,7 +52,12 @@ const submit = async () => {
     const target = route.query.redirect || '/'
     router.push(target)
   } catch (err) {
-    error.value = err.message || t('auth.registerFailed')
+    const message = err.message || t('auth.registerFailed')
+    if (isRegisterEmailApiError(message)) {
+      emailError.value = message
+    } else {
+      error.value = message
+    }
   } finally {
     loading.value = false
   }
@@ -45,9 +71,21 @@ const submit = async () => {
       <p class="auth-subtitle">{{ t('auth.registerSubtitle') }}</p>
 
       <form class="auth-form" @submit.prevent="submit">
-        <label>
+        <label :class="{ 'has-error': emailError }">
           <span>{{ t('auth.email') }}</span>
-          <input v-model="email" type="email" autocomplete="username" :placeholder="t('auth.emailPlaceholder')" required />
+          <input
+            v-model="email"
+            type="email"
+            autocomplete="username"
+            :placeholder="t('auth.emailPlaceholder')"
+            required
+            maxlength="254"
+            :aria-invalid="emailError ? 'true' : 'false'"
+            @input="onEmailInput"
+            @blur="validateEmailField"
+          />
+          <p class="auth-field-hint">{{ t('auth.registerEmailHint') }}</p>
+          <p v-if="emailError" class="auth-field-error">{{ emailError }}</p>
         </label>
         <label>
           <span>{{ t('auth.nicknameOptional') }}</span>
@@ -129,6 +167,10 @@ const submit = async () => {
   color: #475164;
   font-weight: 600;
 }
+.auth-form label.has-error input {
+  border-color: #e85d4d;
+  background: #fff8f7;
+}
 .auth-form input {
   width: 100%;
   padding: 11px 14px;
@@ -142,6 +184,23 @@ const submit = async () => {
   outline: none;
   background: #fff;
   border-color: #2268f0;
+}
+.auth-field-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #67758a;
+  font-weight: 400;
+}
+.auth-field-error {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #b8332a;
+  background: #fff1ef;
+  border-radius: 8px;
+  font-weight: 500;
 }
 .auth-error {
   margin: 0;

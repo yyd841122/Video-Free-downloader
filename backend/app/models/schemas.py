@@ -1,6 +1,6 @@
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, HttpUrl
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator
 
 
 class VideoInfoRequest(BaseModel):
@@ -188,9 +188,19 @@ class AiChatResponse(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(max_length=254)
     password: str = Field(min_length=6, max_length=64)
     nickname: Optional[str] = Field(default=None, max_length=64)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_register_email(cls, value: object) -> object:
+        from app.services.email_validation import EmailValidationError, validate_registration_email
+
+        try:
+            return validate_registration_email(str(value) if value is not None else "")
+        except EmailValidationError as exc:
+            raise ValueError(exc.message_zh) from exc
 
 
 class LoginRequest(BaseModel):

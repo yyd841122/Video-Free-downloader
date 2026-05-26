@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
 from app.db.models import User
+from app.services.email_validation import EmailValidationError, validate_registration_email
 
 
 class UserError(Exception):
@@ -21,7 +22,10 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
 
 
 def create_user(db: Session, email: str, password: str, nickname: Optional[str] = None) -> User:
-    email_norm = email.strip().lower()
+    try:
+        email_norm = validate_registration_email(email)
+    except EmailValidationError as exc:
+        raise UserError(exc.message_zh) from exc
     if get_user_by_email(db, email_norm):
         raise UserError("该邮箱已被注册")
     user = User(
