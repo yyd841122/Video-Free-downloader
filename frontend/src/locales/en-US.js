@@ -130,7 +130,7 @@ export default {
     subtitleStatusUnavailable:
       'No subtitles were detected. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to generate a summary.',
     subtitleStatusUnknown:
-      'AI summary will try platform subtitles first. If none are available, you can upload an SRT/VTT subtitle file.',
+      'Subtitle availability is unknown. AI summary will try to extract platform subtitles. If it fails, you can upload an SRT/VTT subtitle file.',
     subtitleStatusDetected: 'Subtitles detected. AI summary is available.',
     subtitleStatusNone:
       'No subtitles were detected. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to generate a summary.',
@@ -138,6 +138,8 @@ export default {
       'No usable subtitles were found for this video. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to continue AI summary.',
     noTranscriptAsrFailed:
       'No usable subtitles were found for this video, and speech-to-text did not succeed. You can upload an SRT/VTT subtitle file to continue AI summary.',
+    aiSubtitleAccessError:
+      'No usable subtitles could be extracted, or the platform requires login verification. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to continue.',
     aiResultTabs: 'AI results',
     summaryExportAria: 'Summary export actions',
     transcriptTitle: 'Transcript',

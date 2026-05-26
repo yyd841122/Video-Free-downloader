@@ -247,12 +247,46 @@ const aiProgress = computed(() => {
 })
 const transcriptSegments = computed(() => aiTask.value?.transcript_segments || [])
 const aiStatusMessage = computed(() => String(aiTask.value?.message || ''))
+const aiTaskErrorRaw = computed(() => String(aiTask.value?.error || ''))
+const looksLikeAiSubtitleAccessError = (message) => {
+  const text = String(message || '')
+  const lower = text.toLowerCase()
+  return (
+    /fresh cookies/.test(lower) ||
+    /not necessarily logged in/.test(lower) ||
+    /cookies are needed/.test(lower) ||
+    /http error 412/.test(lower) ||
+    /precondition failed/.test(lower) ||
+    /\[douyin\]/i.test(text) ||
+    (/cookie/.test(lower) && /douyin|tiktok|iesdouyin/.test(lower)) ||
+    (/login/.test(lower) && /douyin|tiktok|iesdouyin/.test(lower))
+  )
+}
+const humanizeAiSummaryError = (raw) => {
+  const text = String(raw || '').trim()
+  if (!text) {
+    return ''
+  }
+  if (looksLikeAiSubtitleAccessError(text) || /^error:\s*\[/i.test(text)) {
+    console.warn('[AI summary]', text)
+    return t('home.aiSubtitleAccessError')
+  }
+  return text
+}
 const aiNoTranscriptMessage = computed(() => {
-  const message = aiStatusMessage.value
+  const message = `${aiStatusMessage.value} ${aiTaskErrorRaw.value}`.trim()
+  if (looksLikeAiSubtitleAccessError(message)) {
+    return t('home.aiSubtitleAccessError')
+  }
   if (/转写|语音|ASR|transcri|speech-to-text/i.test(message)) {
     return t('home.noTranscriptAsrFailed')
   }
   return t('home.noTranscript')
+})
+const aiTaskErrorDisplay = computed(() => humanizeAiSummaryError(aiTaskErrorRaw.value))
+const aiTaskIsWarning = computed(() => {
+  const status = aiTask.value?.status
+  return status === 'no_transcript' || (status === 'failed' && Boolean(aiTaskErrorDisplay.value))
 })
 const normalizeSubtitleStatus = (value) => {
   if (value === 'available' || value === 'unavailable' || value === 'unknown') {
@@ -267,12 +301,21 @@ const videoSubtitleStatus = computed(() => {
   return normalizeSubtitleStatus(info.value.subtitle_status)
 })
 const subtitlesUnavailable = computed(() => videoSubtitleStatus.value === 'unavailable')
-const showSubtitleUploadPanel = computed(
-  () =>
-    AI_SUMMARY_MVP_ENABLED &&
-    (subtitlesUnavailable.value || aiTask.value?.status === 'no_transcript') &&
-    !aiTask.value?.summary,
-)
+const showSubtitleUploadPanel = computed(() => {
+  if (!AI_SUMMARY_MVP_ENABLED || aiTask.value?.summary) {
+    return false
+  }
+  if (subtitlesUnavailable.value) {
+    return true
+  }
+  if (aiTask.value?.status === 'no_transcript') {
+    return true
+  }
+  if (aiTask.value?.status === 'failed' && looksLikeAiSubtitleAccessError(aiTaskErrorRaw.value)) {
+    return true
+  }
+  return false
+})
 const subtitleStatusLine = computed(() => {
   if (!info.value) {
     return ''
@@ -281,7 +324,12 @@ const subtitleStatusLine = computed(() => {
     return t('home.subtitleStatusDetected')
   }
   if (aiTask.value?.status === 'no_transcript') {
-    return t('home.subtitleStatusNone')
+    return looksLikeAiSubtitleAccessError(`${aiStatusMessage.value} ${aiTaskErrorRaw.value}`)
+      ? t('home.aiSubtitleAccessError')
+      : t('home.subtitleStatusNone')
+  }
+  if (aiTask.value?.status === 'failed' && looksLikeAiSubtitleAccessError(aiTaskErrorRaw.value)) {
+    return t('home.aiSubtitleAccessError')
   }
   if (videoSubtitleStatus.value === 'available') {
     return t('home.subtitleStatusAvailable')
@@ -1929,7 +1977,7 @@ const startBiliLogin = async () => {
           }}
         </span>
       </div>
-      <p v-if="info && AI_SUMMARY_MVP_ENABLED" class="ai-summary-hint" :class="{ warning: subtitlesUnavailable }" role="status">
+      <p v-if="info && AI_SUMMARY_MVP_ENABLED" class="ai-summary-hint" :class="{ warning: subtitlesUnavailable || videoSubtitleStatus === 'unknown' }" role="status">
         {{ subtitleStatusLine }}
       </p>
       <p v-if="inlineHints.download" class="inline-action-hint download-inline-hint" role="status">
@@ -1974,26 +2022,24 @@ const startBiliLogin = async () => {
         <p>{{ t('home.aiSummaryComingSoon') }}</p>
       </div>
       <template v-else>
+      <div v-if="aiTask && aiTaskIsWarning" :class="['ai-task-state', { warning: aiTaskIsWarning }]" aria-live="polite">
+        <p v-if="aiTask.status === 'no_transcript'" class="ai-empty-state">
+          {{ aiNoTranscriptMessage }}
+        </p>
+        <p v-else-if="aiTask.status === 'failed'" class="ai-empty-state">
+          {{ aiTaskErrorDisplay }}
+        </p>
+      </div>
+      <div v-else-if="aiTask?.status === 'failed'" class="ai-task-state" aria-live="polite">
+        <p class="download-error">{{ aiTaskErrorDisplay }}</p>
+      </div>
       <SubtitleUploadPanel
-        v-if="showSubtitleUploadPanel && !aiTask"
+        v-if="showSubtitleUploadPanel"
         :title="info?.title || ''"
         :url="url.trim()"
         @created="handleSubtitleSummaryCreated"
         @error="error = $event"
       />
-      <div v-if="aiTask" :class="['ai-task-state', { warning: aiTask.status === 'no_transcript' }]" aria-live="polite">
-        <p v-if="aiTask.status === 'no_transcript'" class="ai-empty-state">
-          {{ aiNoTranscriptMessage }}
-        </p>
-        <SubtitleUploadPanel
-          v-if="aiTask.status === 'no_transcript'"
-          :title="info?.title || ''"
-          :url="url.trim()"
-          @created="handleSubtitleSummaryCreated"
-          @error="error = $event"
-        />
-        <p v-else-if="aiTask.status === 'failed'" class="download-error">{{ aiTask.error }}</p>
-      </div>
 
       <div v-if="aiTask?.summary" class="ai-result-tabs">
         <div class="ai-tab-list" role="tablist" :aria-label="t('home.aiResultTabs')">

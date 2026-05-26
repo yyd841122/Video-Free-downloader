@@ -127,7 +127,7 @@ export default {
     subtitleStatusUnavailable:
       '暂未检测到字幕。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
     subtitleStatusUnknown:
-      'AI 总结会优先尝试提取平台字幕；如果没有字幕，可上传 SRT / VTT 字幕文件。',
+      '暂无法确认该视频是否有字幕。AI 总结会尝试提取平台字幕；如果失败，你可以上传 SRT / VTT 字幕文件。',
     subtitleStatusDetected: '已检测到字幕，可使用 AI 总结。',
     subtitleStatusNone:
       '暂未检测到字幕。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
@@ -135,6 +135,8 @@ export default {
       '该视频暂无可用字幕。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
     noTranscriptAsrFailed:
       '该视频暂无可用字幕，语音转写也未成功。你可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
+    aiSubtitleAccessError:
+      '当前视频暂未提取到可用字幕，或平台需要登录验证。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
     aiResultTabs: 'AI 生成结果',
     summaryExportAria: '总结导出操作',
     transcriptTitle: '字幕文本',
