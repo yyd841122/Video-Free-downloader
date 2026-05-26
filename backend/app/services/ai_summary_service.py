@@ -68,6 +68,48 @@ class NoTranscriptError(RuntimeError):
     pass
 
 
+class SubtitleDecodeError(RuntimeError):
+    pass
+
+
+SUBTITLE_DECODE_EMPTY_MESSAGE = (
+    "字幕文件内容为空或无法识别，请确认文件为 SRT / VTT 格式，并使用 UTF-8 编码保存后重试。"
+)
+SUBTITLE_DECODE_FAILED_MESSAGE = SUBTITLE_DECODE_EMPTY_MESSAGE
+
+SUBTITLE_DECODE_ENCODINGS = ("utf-8-sig", "utf-8", "gb18030", "gbk", "big5")
+MOJIBAKE_MARKERS = ("�", "Ã", "Â", "Ð", "Ê", "Ç", "Ò", "Õ")
+
+
+def looks_mojibake(text: str) -> bool:
+    if not text.strip():
+        return False
+    if any(marker in text for marker in MOJIBAKE_MARKERS):
+        return True
+    return sum(text.count(marker) for marker in MOJIBAKE_MARKERS[1:]) >= 3
+
+
+def decode_subtitle_bytes(data: bytes) -> str:
+    if not data.strip():
+        raise SubtitleDecodeError(SUBTITLE_DECODE_EMPTY_MESSAGE)
+
+    decoded_candidates: list[str] = []
+    for encoding in SUBTITLE_DECODE_ENCODINGS:
+        try:
+            text = data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+        if text.strip():
+            decoded_candidates.append(text)
+            if not looks_mojibake(text):
+                return text
+
+    if decoded_candidates:
+        raise SubtitleDecodeError(SUBTITLE_DECODE_FAILED_MESSAGE)
+
+    raise SubtitleDecodeError(SUBTITLE_DECODE_FAILED_MESSAGE)
+
+
 def seconds_to_timestamp(value: float | None) -> str:
     if value is None:
         return "00:00"
@@ -167,7 +209,7 @@ def merge_duplicate_segments(segments: list[TranscriptSegment]) -> list[Transcri
 
 
 def parse_subtitle_file(path: Path) -> list[TranscriptSegment]:
-    content = path.read_text(encoding="utf-8-sig", errors="ignore")
+    content = decode_subtitle_bytes(path.read_bytes())
     if path.suffix.lower() == ".srt":
         return parse_srt(content)
     return parse_vtt(content)
@@ -1324,6 +1366,14 @@ def generate_ai_summary_from_subtitle_task(
             status="no_transcript",
             progress=100,
             message="未解析出可用字幕",
+            error=str(exc),
+        )
+    except SubtitleDecodeError as exc:
+        ai_summary_task_store.update(
+            task_id,
+            status="failed",
+            progress=100,
+            message="字幕文件无法识别",
             error=str(exc),
         )
     except Exception as exc:
