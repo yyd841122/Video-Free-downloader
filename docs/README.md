@@ -12,6 +12,7 @@
 | 了解做到哪、还缺什么 | [项目现状与开发路线图.md](./项目现状与开发路线图.md) |
 | 买服务器、正式上线 | [生产部署清单.md](./生产部署清单.md) |
 | Soft Launch 内测协调 | [mvp-soft-launch-test-guide.md](./mvp-soft-launch-test-guide.md) |
+| 邀请内测志愿者、发放内测包 | [soft-launch-invite-package.md](./soft-launch-invite-package.md) |
 | AI 总结 MVP 验收与边界 | [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) |
 | AI 总结测试样本记录 | [ai-summary-test-samples.md](./ai-summary-test-samples.md) |
 | 产品与会员需求背景 | [需求分析.md](./需求分析.md) |
@@ -48,6 +49,7 @@
 | [GIT_CHANGELOG.md](./GIT_CHANGELOG.md) | Git 变更记录 |
 | [SEO 优化记录.md](./SEO%20优化记录.md) | 首页 SEO 已做项与未做项 |
 | [mvp-soft-launch-test-guide.md](./mvp-soft-launch-test-guide.md) | Soft Launch 内测指南、任务清单、反馈模板 |
+| [soft-launch-invite-package.md](./soft-launch-invite-package.md) | Soft Launch 内测邀请包：内测目标、可测功能、限制、测试支付说明、推荐测试流程和反馈模板 |
 | [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) | AI 总结 MVP 能力边界与验收清单 |
 | [ai-summary-test-samples.md](./ai-summary-test-samples.md) | AI 总结测试样本与结果记录模板 |
 
