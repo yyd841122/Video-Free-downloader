@@ -123,14 +123,27 @@ export default {
     aiPanelAria: 'AI 视频总结（Beta）',
     aiSummaryHint:
       'AI 总结会优先使用平台字幕；如果暂无字幕，可上传 SRT / VTT 字幕文件。自动转文字功能即将开放。',
-    subtitleStatusAvailable: '已检测到字幕，可使用 AI 总结。',
+    subtitleStatusAvailable: '字幕状态：已检测到字幕，可使用 AI 总结。',
     subtitleStatusUnavailable:
-      '暂未检测到字幕。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
+      '字幕状态：暂未检测到字幕。你可以上传 SRT / VTT 字幕文件继续生成 AI 总结；自动转文字功能即将开放。',
     subtitleStatusUnknown:
-      '暂无法确认该视频是否有字幕。AI 总结会尝试提取平台字幕；如果失败，你可以上传 SRT / VTT 字幕文件。',
-    subtitleStatusDetected: '已检测到字幕，可使用 AI 总结。',
+      '字幕状态：暂无法确认。你可以尝试 AI 总结，系统会尝试提取平台字幕；如果失败，可上传 SRT / VTT 字幕文件。',
+    subtitleStatusDetected: '字幕状态：已检测到字幕，可使用 AI 总结。',
     subtitleStatusNone:
-      '暂未检测到字幕。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
+      '字幕状态：暂未检测到字幕。你可以上传 SRT / VTT 字幕文件继续生成 AI 总结；自动转文字功能即将开放。',
+    subtitleDiagDetectionAvailable: '字幕检测：已检测到字幕',
+    subtitleDiagDetectionUnavailable: '字幕检测：暂未检测到字幕',
+    subtitleDiagDetectionUnknown: '字幕检测：暂无法确认',
+    subtitleDiagLanguages: '语言：{languages}',
+    subtitleDiagSourceManual: '来源：平台字幕',
+    subtitleDiagSourceAutomatic: '来源：自动字幕',
+    subtitleDiagSourceNone: '来源：无',
+    subtitleDiagSourceUnknown: '来源：未知',
+    subtitleDiagReadyYes: '可直接点击 AI 总结',
+    subtitleDiagReadyUpload: '建议上传 SRT / VTT 字幕文件',
+    subtitleDiagReadyTry: '可尝试 AI 总结提取平台字幕',
+    subtitleDiagTechnical: '诊断：status={status} · source={source} · languages={languages}',
+    subtitleDiagAria: '字幕检测与 AI 总结可用性',
     noTranscript:
       '该视频暂无可用字幕。自动转文字功能即将开放；你也可以上传 SRT / VTT 字幕文件继续生成 AI 总结。',
     noTranscriptAsrFailed:

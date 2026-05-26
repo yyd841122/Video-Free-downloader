@@ -126,14 +126,27 @@ export default {
     aiPanelAria: 'AI video summary (Beta)',
     aiSummaryHint:
       'AI summary uses platform subtitles first. If no subtitles are available, you can upload an SRT/VTT subtitle file. Auto transcription is coming soon.',
-    subtitleStatusAvailable: 'Subtitles detected. AI summary is available.',
+    subtitleStatusAvailable: 'Subtitle status: Subtitles detected. AI summary is available.',
     subtitleStatusUnavailable:
-      'No subtitles were detected. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to generate a summary.',
+      'Subtitle status: No subtitles detected. You can upload an SRT/VTT subtitle file to generate a summary. Auto transcription is coming soon.',
     subtitleStatusUnknown:
-      'Subtitle availability is unknown. AI summary will try to extract platform subtitles. If it fails, you can upload an SRT/VTT subtitle file.',
-    subtitleStatusDetected: 'Subtitles detected. AI summary is available.',
+      'Subtitle status: Unknown. You can try AI summary; the system will attempt to extract platform subtitles. If it fails, upload an SRT/VTT file.',
+    subtitleStatusDetected: 'Subtitle status: Subtitles detected. AI summary is available.',
     subtitleStatusNone:
-      'No subtitles were detected. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to generate a summary.',
+      'Subtitle status: No subtitles detected. You can upload an SRT/VTT subtitle file to generate a summary. Auto transcription is coming soon.',
+    subtitleDiagDetectionAvailable: 'Detection: Subtitles detected',
+    subtitleDiagDetectionUnavailable: 'Detection: No subtitles detected',
+    subtitleDiagDetectionUnknown: 'Detection: Unknown',
+    subtitleDiagLanguages: 'Languages: {languages}',
+    subtitleDiagSourceManual: 'Source: Platform subtitles',
+    subtitleDiagSourceAutomatic: 'Source: Auto captions',
+    subtitleDiagSourceNone: 'Source: None',
+    subtitleDiagSourceUnknown: 'Source: Unknown',
+    subtitleDiagReadyYes: 'You can click AI summary now',
+    subtitleDiagReadyUpload: 'Upload an SRT/VTT subtitle file recommended',
+    subtitleDiagReadyTry: 'You can try AI summary to extract platform subtitles',
+    subtitleDiagTechnical: 'Diagnostics: status={status} · source={source} · languages={languages}',
+    subtitleDiagAria: 'Subtitle detection and AI summary availability',
     noTranscript:
       'No usable subtitles were found for this video. Auto transcription is coming soon. You can upload an SRT/VTT subtitle file to continue AI summary.',
     noTranscriptAsrFailed:

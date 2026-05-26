@@ -316,7 +316,22 @@ const showSubtitleUploadPanel = computed(() => {
   }
   return false
 })
-const subtitleStatusLine = computed(() => {
+const videoSubtitleLanguages = computed(() => {
+  const languages = info.value?.subtitle_languages
+  return Array.isArray(languages) ? languages.filter(Boolean) : []
+})
+const videoSubtitleSource = computed(() => {
+  const source = info.value?.subtitle_source
+  if (source === 'manual' || source === 'automatic' || source === 'none' || source === 'unknown') {
+    return source
+  }
+  return 'unknown'
+})
+const subtitleDiagnosticsClass = computed(() => ({
+  warning: subtitlesUnavailable.value || videoSubtitleStatus.value === 'unknown',
+  success: videoSubtitleStatus.value === 'available' && !aiTask.value,
+}))
+const subtitleDiagnosticsHeadline = computed(() => {
   if (!info.value) {
     return ''
   }
@@ -338,6 +353,54 @@ const subtitleStatusLine = computed(() => {
     return t('home.subtitleStatusUnavailable')
   }
   return t('home.subtitleStatusUnknown')
+})
+const subtitleSourceLabel = computed(() => {
+  const labels = {
+    manual: 'home.subtitleDiagSourceManual',
+    automatic: 'home.subtitleDiagSourceAutomatic',
+    none: 'home.subtitleDiagSourceNone',
+    unknown: 'home.subtitleDiagSourceUnknown',
+  }
+  return t(labels[videoSubtitleSource.value] || labels.unknown)
+})
+const subtitleDiagnosticsDetails = computed(() => {
+  if (!info.value || !AI_SUMMARY_MVP_ENABLED) {
+    return []
+  }
+  const lines = []
+  if (videoSubtitleStatus.value === 'available') {
+    lines.push(t('home.subtitleDiagDetectionAvailable'))
+  } else if (videoSubtitleStatus.value === 'unavailable') {
+    lines.push(t('home.subtitleDiagDetectionUnavailable'))
+  } else {
+    lines.push(t('home.subtitleDiagDetectionUnknown'))
+  }
+  if (videoSubtitleLanguages.value.length) {
+    lines.push(t('home.subtitleDiagLanguages', { languages: videoSubtitleLanguages.value.join(', ') }))
+  }
+  if (videoSubtitleStatus.value === 'available' && videoSubtitleSource.value !== 'unknown') {
+    lines.push(subtitleSourceLabel.value)
+  } else if (videoSubtitleStatus.value === 'unavailable' && videoSubtitleSource.value === 'none') {
+    lines.push(subtitleSourceLabel.value)
+  }
+  if (videoSubtitleStatus.value === 'available') {
+    lines.push(t('home.subtitleDiagReadyYes'))
+  } else if (videoSubtitleStatus.value === 'unavailable') {
+    lines.push(t('home.subtitleDiagReadyUpload'))
+  } else {
+    lines.push(t('home.subtitleDiagReadyTry'))
+  }
+  return lines
+})
+const subtitleDiagnosticsTechnical = computed(() => {
+  if (!import.meta.env.DEV || !info.value) {
+    return ''
+  }
+  return t('home.subtitleDiagTechnical', {
+    status: videoSubtitleStatus.value || 'unknown',
+    source: videoSubtitleSource.value,
+    languages: videoSubtitleLanguages.value.length ? videoSubtitleLanguages.value.join(',') : '-',
+  })
 })
 const aiEstimateHint = computed(() => {
   if (!aiTaskInProgress.value) return ''
@@ -1977,9 +2040,19 @@ const startBiliLogin = async () => {
           }}
         </span>
       </div>
-      <p v-if="info && AI_SUMMARY_MVP_ENABLED" class="ai-summary-hint" :class="{ warning: subtitlesUnavailable || videoSubtitleStatus === 'unknown' }" role="status">
-        {{ subtitleStatusLine }}
-      </p>
+      <div
+        v-if="info && AI_SUMMARY_MVP_ENABLED"
+        class="ai-subtitle-diagnostics"
+        :class="subtitleDiagnosticsClass"
+        role="status"
+        :aria-label="t('home.subtitleDiagAria')"
+      >
+        <p class="ai-subtitle-diagnostics-headline">{{ subtitleDiagnosticsHeadline }}</p>
+        <ul v-if="subtitleDiagnosticsDetails.length" class="ai-subtitle-diagnostics-details">
+          <li v-for="(line, index) in subtitleDiagnosticsDetails" :key="`${line}-${index}`">{{ line }}</li>
+        </ul>
+        <p v-if="subtitleDiagnosticsTechnical" class="ai-subtitle-diagnostics-technical">{{ subtitleDiagnosticsTechnical }}</p>
+      </div>
       <p v-if="inlineHints.download" class="inline-action-hint download-inline-hint" role="status">
         {{ inlineHints.download }}
         <span v-if="inlineHintLogin.download" class="inline-action-links">

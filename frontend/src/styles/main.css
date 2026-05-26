@@ -734,6 +734,52 @@ fieldset legend,
   border-radius: 14px;
 }
 
+.ai-subtitle-diagnostics {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #35507a;
+  background: #f4f8ff;
+  border: 1px solid #d6e4ff;
+  border-radius: 14px;
+}
+
+.ai-subtitle-diagnostics.success {
+  background: #f3fbf6;
+  border-color: #ccebd7;
+  color: #245a37;
+}
+
+.ai-subtitle-diagnostics.warning {
+  color: #8a3b12;
+  background: #fff8f0;
+  border-color: #ffe2c2;
+}
+
+.ai-subtitle-diagnostics-headline {
+  margin: 0;
+  font-weight: 700;
+}
+
+.ai-subtitle-diagnostics-details {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: inherit;
+}
+
+.ai-subtitle-diagnostics-details li + li {
+  margin-top: 4px;
+}
+
+.ai-subtitle-diagnostics-technical {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #607089;
+  opacity: 0.88;
+}
+
 .ai-summary-hint.warning {
   color: #8a3b12;
   background: #fff8f0;
