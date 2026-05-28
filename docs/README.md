@@ -71,7 +71,9 @@
 |------|------|
 | `backend/scripts/test_billing.py` | 支付/会员/配额 |
 | `backend/scripts/admin_grant_vip.py` | 人工开通 VIP（运维 SOP 见 [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md)） |
+| `backend/scripts/admin_adjust_vip.py` | 人工撤销/调整 VIP（list-grants / rollback / revoke） |
 | `backend/scripts/test_admin_grant_vip.py` | 人工开通 VIP 单元测试 |
+| `backend/scripts/test_admin_adjust_vip.py` | 人工调整 VIP 单元测试 |
 | `backend/scripts/test_history.py` | 任务历史与批量元数据 |
 | `backend/scripts/check_production.py` | 生产环境变量自检（不联网） |
 | `backend/scripts/smoke_http.py` | HTTP 冒烟 |

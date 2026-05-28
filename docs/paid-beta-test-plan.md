@@ -160,6 +160,28 @@ python scripts/admin_grant_vip.py \
 
 **`reason` 参考：** `wechat payment` | `alipay payment` | `paypal payment` | `beta gift` | `support compensation`
 
+### 退款 / 误开通调整（`admin_adjust_vip.py`）
+
+| 场景 | 命令 |
+|------|------|
+| 查记录 | `--action list-grants --email ...` |
+| 撤销最近一次人工开通 | `--action rollback-last-manual-grant` + `--request-id` + `--confirm` |
+| 用户退款 / 取消会员 | `--action revoke-vip` + `--request-id` + `--confirm` |
+
+示例（回滚，dry-run）：
+
+```bash
+python scripts/admin_adjust_vip.py \
+  --action rollback-last-manual-grant \
+  --email user@example.com \
+  --reason "refund requested" \
+  --admin-email support@cozyguidehub.com \
+  --request-id adjust-20260528-user-rollback-001 \
+  --mark-order-refunded
+```
+
+终身会员撤销须 `--force`。详见 [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) 第 9 节。
+
 ---
 
 ## 8. 付费用户记录表

@@ -192,15 +192,54 @@ tail -n 5 backend/data/audit/manual_grants.jsonl
 
 ## 9. 误操作处理
 
+**调整工具：** `backend/scripts/admin_adjust_vip.py`（与开通 CLI 分离；审计写入 `manual_vip_adjustments.jsonl`）
+
 | 情况 | 处理 |
 |------|------|
 | 仅执行了 dry-run | **无需处理**，数据库与审计均未变更 |
-| confirm 写错邮箱 | **不要** 手动改数据库；记录 `order_no`、审计行、时间，联系负责人制定补偿方案 |
-| 怀疑重复开通 | 查 `request-id` 与 `manual_grants.jsonl` 是否已有同邮箱、同时间段记录 |
-| 开错套餐 | 记录 `order_no` 与 audit，再决定补发/延期/客服说明；**无自动撤销工具** |
-| 需要回滚 VIP | **严禁** 直接 SQL 改 `users` 表；须单独设计 rollback 工具或人工流程后再执行 |
+| confirm 写错邮箱 | 错号 `revoke-vip`；正确号重新 `admin_grant_vip` |
+| 怀疑重复开通 | `list-grants` 查记录；必要时 `rollback-last-manual-grant` |
+| 开错套餐 / 需撤销最近一次人工开通 | `rollback-last-manual-grant`（恢复 grant 的 before 状态） |
+| 用户退款 / 测试账号恢复 | `revoke-vip`（可选 `--mark-order-refunded`） |
+| 需要手改数据库 | **严禁**；只用下方 CLI |
 
-当前版本 **没有** 自动撤销 / 退款 CLI。所有异常先 **停手、留痕、上报**。
+### 查询人工开通记录
+
+```bash
+python scripts/admin_adjust_vip.py \
+  --action list-grants \
+  --email user@example.com \
+  --limit 10
+```
+
+### 回滚最近一次人工开通（dry-run）
+
+```bash
+python scripts/admin_adjust_vip.py \
+  --action rollback-last-manual-grant \
+  --email user@example.com \
+  --reason "refund requested" \
+  --admin-email support@cozyguidehub.com \
+  --request-id adjust-YYYYMMDD-user-rollback-001 \
+  --mark-order-refunded
+```
+
+确认后加 `--confirm`。指定订单：`--order-no MAN...`。
+
+### 撤销 VIP（dry-run）
+
+```bash
+python scripts/admin_adjust_vip.py \
+  --action revoke-vip \
+  --email user@example.com \
+  --reason "refund completed" \
+  --admin-email support@cozyguidehub.com \
+  --request-id adjust-YYYYMMDD-user-revoke-001
+```
+
+终身会员须加 `--force`。确认后加 `--confirm`。
+
+写操作均须 `--reason`、`--admin-email`、`--request-id`；默认 dry-run，仅 `--confirm` 写库。
 
 ---
 
