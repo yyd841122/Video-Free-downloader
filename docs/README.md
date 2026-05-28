@@ -16,6 +16,7 @@
 | Beta 反馈登记与日报 | [beta-feedback-log.md](./beta-feedback-log.md) |
 | 平台兼容性样本与回归清单 | [platform-compatibility-samples.md](./platform-compatibility-samples.md) |
 | Soft Launch 通过后 Beta 路线 | [post-soft-launch-roadmap.md](./post-soft-launch-roadmap.md) |
+| 人工收款 + 手动开通 VIP（SSH CLI） | [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) |
 | AI 总结 MVP 验收与边界 | [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) |
 | AI 总结测试样本记录 | [ai-summary-test-samples.md](./ai-summary-test-samples.md) |
 | 产品与会员需求背景 | [需求分析.md](./需求分析.md) |
@@ -35,6 +36,7 @@
 | [生产部署清单.md](./生产部署清单.md) | 腾讯云/Cloudflare、Nginx、Stripe Live、自检 |
 | [需求分析.md](./需求分析.md) | 产品需求（部分条目已实现，见路线图对照） |
 | [方案设计.md](./方案设计.md) | 中文方案设计（SSE/无库等描述可能过时） |
+| [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) | **人工收款与手动开通 VIP**：dry-run / confirm、request-id、审计与安全 |
 
 ### 英文 / 历史（参考用）
 
@@ -66,6 +68,8 @@
 | 脚本 | 用途 |
 |------|------|
 | `backend/scripts/test_billing.py` | 支付/会员/配额 |
+| `backend/scripts/admin_grant_vip.py` | 人工开通 VIP（运维 SOP 见 [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md)） |
+| `backend/scripts/test_admin_grant_vip.py` | 人工开通 VIP 单元测试 |
 | `backend/scripts/test_history.py` | 任务历史与批量元数据 |
 | `backend/scripts/check_production.py` | 生产环境变量自检（不联网） |
 | `backend/scripts/smoke_http.py` | HTTP 冒烟 |
