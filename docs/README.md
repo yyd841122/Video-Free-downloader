@@ -20,6 +20,8 @@
 | 小额人工付费 Beta 邀请与记录表 | [paid-beta-test-plan.md](./paid-beta-test-plan.md) |
 | **Beta 当前状态与下一步** | [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md) |
 | **MoR 申请与自动收款调研准备** | [mor-application-prep.md](./mor-application-prep.md) |
+| **MoR 平台问询与审核跟踪** | [mor-outreach-tracker.md](./mor-outreach-tracker.md) |
+| **付费 Beta 反馈与开通跟踪** | [paid-beta-feedback-tracker.md](./paid-beta-feedback-tracker.md) |
 | AI 总结 MVP 验收与边界 | [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) |
 | AI 总结测试样本记录 | [ai-summary-test-samples.md](./ai-summary-test-samples.md) |
 | 产品与会员需求背景 | [需求分析.md](./需求分析.md) |
@@ -43,6 +45,8 @@
 | [paid-beta-test-plan.md](./paid-beta-test-plan.md) | **小额付费 Beta**：邀请话术、付费/反馈记录表、扩大测试判断标准 |
 | [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md) | **Beta 阶段快照**：已完成能力、限制、优先级、待观察指标与决策树 |
 | [mor-application-prep.md](./mor-application-prep.md) | **MoR 调研准备**：候选平台对比、合规表述包、问询模板、Go/No-Go 标准 |
+| [mor-outreach-tracker.md](./mor-outreach-tracker.md) | **MoR 问询执行跟踪**：平台审核状态、发送记录、Go/No-Go 决策 |
+| [paid-beta-feedback-tracker.md](./paid-beta-feedback-tracker.md) | **付费 Beta 执行跟踪**：用户响应、开通记录、使用反馈、每周复盘 |
 
 ### 英文 / 历史（参考用）
 
