@@ -67,6 +67,7 @@ onBeforeUnmount(stopPoll)
           <div class="emoji">🎉</div>
           <h1>{{ t('payment.successTitle') }}</h1>
           <p>{{ t('payment.successOrder', { orderNo: order.order_no }) }}</p>
+          <p v-if="!String(order.order_no || '').startsWith('MAN')" class="beta-note">{{ t('payment.successTestModeNote') }}</p>
           <p v-if="userStore.user?.is_lifetime_vip">{{ t('payment.lifetimeGranted') }}</p>
           <p v-else-if="userStore.vipLabel">{{ userStore.vipLabel }}</p>
           <div class="actions">
@@ -149,6 +150,11 @@ p {
 }
 .hint {
   font-size: 12.5px;
+  color: #67758a;
+}
+.beta-note {
+  font-size: 12.5px;
+  line-height: 1.6;
   color: #67758a;
 }
 </style>

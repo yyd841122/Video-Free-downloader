@@ -157,6 +157,31 @@ const continuePay = async (order) => {
   }
 }
 
+const isManualOrder = (order) => String(order?.order_no || '').startsWith('MAN')
+
+const isStripeCheckoutOrder = (order) => !order?.is_mock && !isManualOrder(order)
+
+const hasPaidManualOrder = computed(() =>
+  orders.value.some((order) => order.status === 'paid' && isManualOrder(order)),
+)
+
+const hasPaidStripeOrder = computed(() =>
+  orders.value.some((order) => order.status === 'paid' && isStripeCheckoutOrder(order)),
+)
+
+const vipSourceNote = computed(() => {
+  if (!userStore.isVip) return ''
+  if (hasPaidManualOrder.value && hasPaidStripeOrder.value) return t('account.vipSourceMixed')
+  if (hasPaidManualOrder.value) return t('account.vipSourceManual')
+  if (hasPaidStripeOrder.value) return t('account.vipSourceStripeTest')
+  return ''
+})
+
+const historyFailedHint = (item) => {
+  if (item.status !== 'failed' && item.status !== 'no_transcript') return ''
+  return item.kind === 'ai_summary' ? t('account.historyFailedHintAi') : t('account.historyFailedHintDownload')
+}
+
 const handleLogout = () => {
   userStore.logout()
   router.push('/')
@@ -181,6 +206,7 @@ onMounted(async () => {
         <p class="name">{{ userStore.user?.nickname || userStore.user?.email?.split('@')[0] }}</p>
         <p class="email">{{ userStore.user?.email }}</p>
         <p :class="['vip-line', userStore.isVip ? 'is-vip' : '']">{{ vipExpireText }}</p>
+        <p v-if="vipSourceNote" class="vip-source-note">{{ vipSourceNote }}</p>
       </div>
       <div class="profile-actions">
         <RouterLink to="/pricing" class="upgrade-btn">
@@ -188,6 +214,10 @@ onMounted(async () => {
         </RouterLink>
       </div>
     </div>
+
+    <section v-if="userStore.isVip" class="membership-notes">
+      <p class="benefits-boundary">{{ t('account.vipBenefitsBoundary') }}</p>
+    </section>
 
     <section v-if="quota" class="quota-section">
       <header class="section-head">
@@ -241,10 +271,11 @@ onMounted(async () => {
           <tr v-for="item in history" :key="`${item.kind}-${item.task_id}`">
             <td>{{ kindLabel(item.kind) }}</td>
             <td class="history-title">{{ item.title || item.url }}</td>
-            <td>
+            <td class="history-status-cell">
               <span :class="`status status-${item.status === 'completed' ? 'paid' : item.status === 'failed' ? 'canceled' : 'pending'}`">
                 {{ historyStatusLabel[item.status] || item.status }}
               </span>
+              <p v-if="historyFailedHint(item)" class="history-failed-hint">{{ historyFailedHint(item) }}</p>
             </td>
             <td>{{ formatTime(item.created_at) }}</td>
             <td>
@@ -288,6 +319,7 @@ onMounted(async () => {
         <button type="button" class="refresh" @click="loadOrders">{{ t('account.refresh') }}</button>
       </header>
       <p class="orders-help">{{ t('account.ordersHelp') }}</p>
+      <p class="orders-help orders-help-secondary">{{ t('account.manualOrderExplanation') }}</p>
       <p v-if="error" class="error">{{ error }}</p>
       <div v-if="loading" class="muted">{{ t('account.ordersLoading') }}</div>
       <div v-else-if="!orders.length" class="empty">
@@ -308,9 +340,14 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-for="order in orders" :key="order.order_no">
-            <td class="mono">
+            <td class="mono order-no-cell">
               {{ order.order_no }}
-              <span v-if="order.is_mock" class="mock-tag">{{ t('account.orderDevCheckoutTag') }}</span>
+              <span v-if="isManualOrder(order)" class="order-tag manual-tag">{{ t('account.orderManualGrantTag') }}</span>
+              <span v-else-if="order.is_mock" class="order-tag mock-tag">{{ t('account.orderDevCheckoutTag') }}</span>
+              <span v-else class="order-tag stripe-test-tag">{{ t('account.orderStripeTestTag') }}</span>
+              <p v-if="isManualOrder(order) && order.status === 'paid'" class="order-tag-note">
+                {{ t('account.orderManualGrantNote') }}
+              </p>
             </td>
             <td>{{ order.plan_name }}</td>
             <td class="amount">{{ order.amount_display }}</td>
@@ -415,6 +452,49 @@ onMounted(async () => {
 }
 .vip-line.is-vip {
   color: #b48400;
+}
+.vip-source-note {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #5a6880;
+}
+.benefits-boundary {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #475164;
+  background: #f7f9fd;
+  border: 1px solid rgba(231, 236, 245, 1);
+  border-radius: 10px;
+}
+.membership-notes {
+  margin-top: 16px;
+}
+.history-status-cell {
+  min-width: 180px;
+}
+.history-failed-hint {
+  margin: 6px 0 0;
+  max-width: 260px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: #67758a;
+}
+.orders-help-secondary {
+  margin-top: -4px;
+}
+.order-no-cell {
+  min-width: 220px;
+}
+.order-tag-note {
+  margin: 6px 0 0;
+  max-width: 240px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: #67758a;
+  font-family: inherit;
 }
 .upgrade-btn {
   padding: 9px 18px;
@@ -564,14 +644,27 @@ onMounted(async () => {
   color: #b8332a;
   background: #fff1ef;
 }
-.mock-tag {
-  margin-left: 6px;
+.order-tag {
+  display: inline-block;
+  margin-top: 4px;
+  margin-left: 0;
   padding: 2px 6px;
   font-size: 10.5px;
   font-weight: 700;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.mock-tag {
   color: #6b4500;
   background: #fff4cc;
-  border-radius: 4px;
+}
+.manual-tag {
+  color: #1f6b45;
+  background: #e0f5ea;
+}
+.stripe-test-tag {
+  color: #1e4f91;
+  background: #e8f1ff;
 }
 .link-btn {
   padding: 4px 10px;

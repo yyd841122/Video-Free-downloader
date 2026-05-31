@@ -74,6 +74,14 @@ const buy = async (planCode) => {
       <p v-if="vipExpireText" class="vip-current">{{ vipExpireText }}</p>
       <p v-if="billingMode.mock" class="mode-tip">{{ t('pricing.mockModeTip') }}</p>
       <p v-else class="mode-tip">{{ t('pricing.stripeTestModeTip') }}</p>
+      <div class="beta-payment-notice">
+        <p>{{ t('pricing.betaPaymentNotice') }}</p>
+        <p>
+          {{ t('pricing.betaManualActivationPrefix') }}
+          <a href="mailto:support@cozyguidehub.com">support@cozyguidehub.com</a>
+          {{ t('pricing.betaManualActivationSuffix') }}
+        </p>
+      </div>
     </header>
 
     <p v-if="error" class="pricing-error">{{ error }}</p>
@@ -176,6 +184,33 @@ const buy = async (planCode) => {
   color: #6b4500;
   background: #fff4cc;
   border-radius: 999px;
+}
+.beta-payment-notice {
+  max-width: 720px;
+  margin: 16px auto 0;
+  padding: 14px 16px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #475164;
+  background: #f7f9fd;
+  border: 1px solid rgba(231, 236, 245, 1);
+  border-radius: 12px;
+}
+.beta-payment-notice p {
+  margin: 0;
+  color: #475164;
+}
+.beta-payment-notice p + p {
+  margin-top: 8px;
+}
+.beta-payment-notice a {
+  color: #2268f0;
+  font-weight: 600;
+  text-decoration: none;
+}
+.beta-payment-notice a:hover {
+  text-decoration: underline;
 }
 .pricing-error {
   margin: 0 auto 20px;
