@@ -18,6 +18,8 @@
 | Soft Launch 通过后 Beta 路线 | [post-soft-launch-roadmap.md](./post-soft-launch-roadmap.md) |
 | 人工收款 + 手动开通 VIP（SSH CLI） | [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) |
 | 小额人工付费 Beta 邀请与记录表 | [paid-beta-test-plan.md](./paid-beta-test-plan.md) |
+| **Beta 当前状态与下一步** | [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md) |
+| **MoR 申请与自动收款调研准备** | [mor-application-prep.md](./mor-application-prep.md) |
 | AI 总结 MVP 验收与边界 | [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) |
 | AI 总结测试样本记录 | [ai-summary-test-samples.md](./ai-summary-test-samples.md) |
 | 产品与会员需求背景 | [需求分析.md](./需求分析.md) |
@@ -39,6 +41,8 @@
 | [方案设计.md](./方案设计.md) | 中文方案设计（SSE/无库等描述可能过时） |
 | [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) | **人工收款与手动开通 VIP**：dry-run / confirm、request-id、审计与安全 |
 | [paid-beta-test-plan.md](./paid-beta-test-plan.md) | **小额付费 Beta**：邀请话术、付费/反馈记录表、扩大测试判断标准 |
+| [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md) | **Beta 阶段快照**：已完成能力、限制、优先级、待观察指标与决策树 |
+| [mor-application-prep.md](./mor-application-prep.md) | **MoR 调研准备**：候选平台对比、合规表述包、问询模板、Go/No-Go 标准 |
 
 ### 英文 / 历史（参考用）
 
