@@ -579,7 +579,7 @@ export default {
     trust1: 'In-site Stripe is in Test Mode for Beta validation only. No live charges until announced.',
     trust2: 'Test Mode orders use Stripe test checkout and verified webhooks for technical validation only.',
     trust3: 'One-time payment adds duration — no auto-renewal. Lifetime is a single purchase.',
-    trust4: 'For real Beta payments, email support@cozyguidehub.com for manual activation. Pending Test orders can use Continue payment in Account.',
+    trust4: 'For real Beta payments, email support{\'@\'}cozyguidehub.com for manual activation. Pending Test orders can use Continue payment in Account.',
     benefitQuality: 'Video quality',
     benefitAi: 'AI summary',
     benefitChat: 'AI Q&A',
@@ -629,9 +629,9 @@ export default {
     historyCompleted: 'Completed',
     historyFailed: 'Failed',
     historyFailedHintDownload:
-      'Try another link, a lower quality, or check if the platform requires login/cookies. If it still fails, contact support@cozyguidehub.com with the link and a screenshot.',
+      'Try another link, a lower quality, or check if the platform requires login/cookies. If it still fails, contact support{\'@\'}cozyguidehub.com with the link and a screenshot.',
     historyFailedHintAi:
-      'Try uploading SRT/VTT subtitles or confirm the video has platform subtitles. If it still fails, contact support@cozyguidehub.com with the link and a screenshot.',
+      'Try uploading SRT/VTT subtitles or confirm the video has platform subtitles. If it still fails, contact support{\'@\'}cozyguidehub.com with the link and a screenshot.',
     historyRedownload: 'Download again',
     historyViewAi: 'View summary',
     historyAiBeta: 'MVP available',
@@ -640,7 +640,7 @@ export default {
     ordersHelp:
       'MAN orders = manual activation / offline payment. FVD orders = Stripe Test Mode demo. Pending Test orders can use Continue payment for Beta validation.',
     manualOrderExplanation:
-      'Manual orders are activated by an administrator after offline payment or Beta authorization. Questions? Contact support@cozyguidehub.com.',
+      'Manual orders are activated by an administrator after offline payment or Beta authorization. Questions? Contact support{\'@\'}cozyguidehub.com.',
     refresh: 'Refresh',
     ordersLoadFailed: 'Failed to load orders',
     ordersLoading: 'Loading orders…',
@@ -705,7 +705,7 @@ export default {
     successTitle: 'Payment successful — welcome, VIP!',
     successOrder: 'Order {orderNo} is complete.',
     successTestModeNote:
-      'This is a Stripe Test Mode demo order, not a live charge. For real Beta payments, contact support@cozyguidehub.com for manual activation.',
+      'This is a Stripe Test Mode demo order, not a live charge. For real Beta payments, contact support{\'@\'}cozyguidehub.com for manual activation.',
     lifetimeGranted: 'You have Lifetime VIP with full access.',
     backHome: 'Back to home',
     viewAccount: 'View account',

@@ -575,7 +575,7 @@ export default {
     trust1: '站内 Stripe 当前为 Test Mode 内测验证，不产生真实扣款；正式在线收款开放前会另行公告。',
     trust2: 'Test Mode 订单经 Stripe 测试环境与验签 Webhook 开通会员，仅用于技术验证。',
     trust3: '本服务为「一次性付款 + 时长充值」，不会自动续费；终身会员一次买断永久有效。',
-    trust4: 'Beta 真实付费请邮件联系 support@cozyguidehub.com 人工开通；待支付 Test 订单可在个人中心继续支付。',
+    trust4: 'Beta 真实付费请邮件联系 support{\'@\'}cozyguidehub.com 人工开通；待支付 Test 订单可在个人中心继续支付。',
     benefitQuality: '高清画质',
     benefitAi: 'AI 总结',
     benefitChat: 'AI 问答',
@@ -624,9 +624,9 @@ export default {
     historyCompleted: '已完成',
     historyFailed: '失败',
     historyFailedHintDownload:
-      '可尝试更换链接、选择较低清晰度，或确认平台是否需要登录/cookies。仍失败请联系 support@cozyguidehub.com 并附上链接与截图。',
+      '可尝试更换链接、选择较低清晰度，或确认平台是否需要登录/cookies。仍失败请联系 support{\'@\'}cozyguidehub.com 并附上链接与截图。',
     historyFailedHintAi:
-      '可尝试上传 SRT/VTT 字幕，或确认视频是否有平台字幕。仍失败请联系 support@cozyguidehub.com 并附上链接与截图。',
+      '可尝试上传 SRT/VTT 字幕，或确认视频是否有平台字幕。仍失败请联系 support{\'@\'}cozyguidehub.com 并附上链接与截图。',
     historyRedownload: '再次下载',
     historyViewAi: '查看总结',
     historyAiBeta: 'MVP 已开放',
@@ -635,7 +635,7 @@ export default {
     ordersHelp:
       'MAN 开头订单表示人工开通 / 线下收款；FVD 开头订单为 Stripe Test Mode 内测演示。待支付 Test 订单可点击「继续支付」完成内测验证。',
     manualOrderExplanation:
-      '人工开通订单由管理员根据线下付款或内测授权手动开通。如有疑问请联系 support@cozyguidehub.com。',
+      '人工开通订单由管理员根据线下付款或内测授权手动开通。如有疑问请联系 support{\'@\'}cozyguidehub.com。',
     refresh: '刷新',
     ordersLoadFailed: '订单加载失败',
     ordersLoading: '订单加载中…',
@@ -698,7 +698,7 @@ export default {
     successTitle: '支付成功，欢迎成为高级会员！',
     successOrder: '订单 {orderNo} 已完成。',
     successTestModeNote:
-      '此为 Stripe Test Mode 内测演示订单，不代表真实扣款。Beta 真实付费请通过 support@cozyguidehub.com 人工开通。',
+      '此为 Stripe Test Mode 内测演示订单，不代表真实扣款。Beta 真实付费请通过 support{\'@\'}cozyguidehub.com 人工开通。',
     lifetimeGranted: '你已是终身会员，永久解锁全部权益。',
     backHome: '返回首页继续下载',
     viewAccount: '查看个人中心',
