@@ -2,8 +2,8 @@
 
 > **产品：** SaveAny 万能视频下载器（https://videodown.cozyguidehub.com）  
 > **阶段：** Beta Phase（B1 → B2 并行）  
-> **文档版本：** 2026-05-31  
-> **相关文档：** [mor-application-prep.md](./mor-application-prep.md) · [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md) · [monetization-paths.md](./monetization-paths.md)
+> **文档版本：** 2026-05-31（message pack ready）  
+> **相关文档：** [mor-application-prep.md](./mor-application-prep.md) · [mor-outreach-message-pack.md](./mor-outreach-message-pack.md) · [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md) · [monetization-paths.md](./monetization-paths.md)
 
 **声明：** 本文档为内部运营跟踪，**不记录** API Key、商户号、密钥、个人身份证件或收款码。平台政策以官方回复为准。
 
@@ -23,13 +23,13 @@
 
 ## 2. 候选平台跟踪表
 
-> 初始状态均为 **Pending / To confirm**，待实际问询后更新。勿将「待确认」当作已批准。
+> Creem / Lemon Squeezy / Paddle 已标 **ready_to_send**（邮件包就绪，待用户手动发送）。Dodo / FastSpring 仍为 Pending。勿将「待发送」当作已批准或已回复。
 
 | ID | 平台 | 官网 / 后台入口 | 当前状态 | 是否已注册账号 | 是否已发送问询 | 发送日期 | 回复日期 | 回复结论 | 是否接受 video utility / AI summary SaaS | 是否需要公司主体 | 是否支持个人开发者 | 是否支持中国开发者 | 提现方式 | 费率 | Webhook 支持 | 风控关注点 | Go / No-Go / Pending | 下一步动作 | 备注 |
 |----|------|-----------------|----------|----------------|----------------|----------|----------|----------|------------------------------------------|------------------|--------------------|--------------------|----------|------|--------------|------------|----------------------|------------|------|
-| MOR-001 | Creem | https://creem.io | Pending | To confirm | 否 | — | — | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | 下载类工具可能被追问；需强调用户版权责任 | **Pending** | 优先注册并发送 [mor-application-prep.md §5](./mor-application-prep.md) 问询邮件 | 华人社区讨论较多，优先调研 |
-| MOR-002 | Lemon Squeezy | https://www.lemonsqueezy.com | Pending | To confirm | 否 | — | — | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | 产品类型审核；indie 相对友好 | **Pending** | 与 Creem 并行发送问询 | 文档与 Webhook 较完善 |
-| MOR-003 | Paddle | https://www.paddle.com | Pending | To confirm | 否 | — | — | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | 审核较严；下载器类可能需补充 FAQ | **Pending** | 准备资料；Creem / LS 不顺则推进 | 经典 SaaS MoR，作备选 |
+| MOR-001 | Creem | https://creem.io | **ready_to_send** | To confirm | **否** | — | — | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | 下载类工具可能被追问；需强调用户版权责任 | **Pending** | 发送 [mor-outreach-message-pack.md §3](./mor-outreach-message-pack.md) 模板 | 等待用户手动发送或补充账号信息 |
+| MOR-002 | Lemon Squeezy | https://www.lemonsqueezy.com | **ready_to_send** | To confirm | **否** | — | — | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | 产品类型审核；indie 相对友好 | **Pending** | 发送 [mor-outreach-message-pack.md §4](./mor-outreach-message-pack.md) 模板 | 等待用户手动发送或补充账号信息 |
+| MOR-003 | Paddle | https://www.paddle.com | **ready_to_send** | To confirm | **否** | — | — | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | 审核较严；下载器类可能需补充 FAQ | **Pending** | 发送 [mor-outreach-message-pack.md §5](./mor-outreach-message-pack.md) 模板 | 等待用户手动发送或补充账号信息 |
 | MOR-004 | Dodo Payments | https://dodopayments.com | Pending | To confirm | 否 | — | — | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | 新平台，案例少；业务类型待核实 | **Pending** | 观察项 — 先看其他平台回复与其他开发者案例 | P2 优先级 |
 | MOR-005 | FastSpring | https://fastspring.com | Pending | To confirm | 否 | — | — | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | To confirm | 企业向审核严；Beta 体量可能不匹配 | **Pending** | 放后面 — 产品更成熟后再联系 | P3 优先级 |
 
@@ -54,7 +54,7 @@
 | 11 | ASR 未开放说明 | ☐ 待确认 | AI 总结依赖平台字幕或上传 SRT/VTT |
 | 12 | 当前人工收款说明 | ☐ 待确认 | Beta 真实付费走线下 + MAN 订单，非站内 Live 扣款 |
 
-**模板版本：** [mor-application-prep.md §5](./mor-application-prep.md)（2026-05-31）
+**模板版本：** [mor-outreach-message-pack.md](./mor-outreach-message-pack.md)（2026-05-31）；通用参考 [mor-application-prep.md §5](./mor-application-prep.md)
 
 ---
 
@@ -62,9 +62,9 @@
 
 | 日期 | 平台 | 联系方式 | 使用模板版本 | 是否发送 | 附带资料 | 对方回复摘要 | 需要补充的信息 | 当前状态 |
 |------|------|----------|--------------|----------|----------|--------------|----------------|----------|
-| — | Creem | To confirm | mor-application-prep §5 | 否 | — | — | — | 待发送 |
-| — | Lemon Squeezy | To confirm | mor-application-prep §5 | 否 | — | — | — | 待发送 |
-| — | Paddle | To confirm | mor-application-prep §5 | 否 | — | — | — | 待发送 |
+| — | Creem | To confirm | mor-outreach-message-pack §3 | 否 | 官网链接 | — | — | **ready_to_send** |
+| — | Lemon Squeezy | To confirm | mor-outreach-message-pack §4 | 否 | 官网链接 | — | — | **ready_to_send** |
+| — | Paddle | To confirm | mor-outreach-message-pack §5 | 否 | 官网链接 | — | — | **ready_to_send** |
 | — | Dodo Payments | To confirm | mor-application-prep §5 | 否 | — | — | — | 待发送 |
 | — | FastSpring | To confirm | mor-application-prep §5 | 否 | — | — | — | 待发送 |
 
@@ -100,8 +100,8 @@
 
 | 优先级 | 动作 | 说明 |
 |--------|------|------|
-| 1 | 问询 **Creem**、**Lemon Squeezy** | 并行发送 §5 模板邮件；更新 §2、§4 |
-| 2 | **Paddle** 作为备选 | 同步准备申请资料；前两者 No-Go 或 Pending 过久时推进 |
+| 1 | 发送 **Creem**、**Lemon Squeezy** 问询 | 复制 [mor-outreach-message-pack.md](./mor-outreach-message-pack.md) §3–§4；发送后更新 §2、§4 为 sent |
+| 2 | **Paddle** 备选 | 复制 message pack §5；前两者 No-Go 或 Pending 过久时优先发送 |
 | 3 | **Dodo Payments** 作观察项 | 不优先投入；观察社区案例与其他平台结论 |
 | 4 | **FastSpring** 放后面 | Beta 体量与审核成本不匹配，产品成熟后再联系 |
 | 5 | **不写支付代码** | 直至 §5 出现至少一个 **Go** 且提现 / Webhook 书面确认 |
