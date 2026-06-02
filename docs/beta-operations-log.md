@@ -116,6 +116,52 @@
 
 ---
 
+## 2026-06-02 — Run #003 MoR doc verification（Run #003）
+
+| 项 | 值 |
+|----|-----|
+| 操作时间（UTC+8） | 2026-06-02 |
+| 操作人 / Agent | SaveAny Beta Operations Tracking Agent |
+| 状态 | **done** |
+| 关联 commit（Run #002） | `52b2a68` — already on `origin/master` |
+
+### Summary
+
+- **Verified** Run #002 docs complete and Creem status accurate across all tracker files
+- Creem MOR-001: **human_review_pending** · inquiry **sent** · **preliminary_go** · human compliance/support **pending**
+- §5A in mor-application-prep.md present with *not final live approval* disclaimer
+- README.md already indexes beta-operations-log.md — **no index change required**
+- **No code / live payment / webhook changes**
+
+### Run #003 核对清单
+
+| 检查项 | 结果 |
+|--------|------|
+| mor-outreach-tracker.md §2 Creem 行 | ✅ 与 spec 一致 |
+| mor-outreach-tracker.md §4 发送记录 | ✅ dashboard support chat；human_review_pending |
+| mor-outreach-tracker.md §5 Go/No-Go | ✅ Pending / Preliminary Go |
+| mor-application-prep.md §5A | ✅ 初步回复摘要 + 下一步清单 |
+| beta-current-status-and-next-actions.md MoR 状态 | ✅ preliminary_go / human_review_pending |
+| beta-operations-log.md Run #002 状态常量 | ✅ 已存在 |
+| README.md beta-operations-log 索引 | ✅ 已存在 |
+
+### 状态常量（unchanged from Run #002）
+
+| 常量 | 值 |
+|------|-----|
+| CREEM_STATUS | human_review_pending |
+| CREEM_REPLY_RECEIVED | yes |
+| CREEM_PRELIMINARY_RESULT | preliminary_go |
+| LIVE_MODE_APPROVED | no |
+| MOR_CODE_CHANGED | no |
+| PAYMENT_LIVE_CHANGED | no |
+
+### 阻塞项
+
+- Creem chat: **Waiting for a teammate** — human compliance/support final confirmation pending
+
+---
+
 ## 日志约定
 
 - 每次 Agent 运行或人工里程碑在此追加一节，格式：`YYYY-MM-DD — 标题（Run #NNN）`

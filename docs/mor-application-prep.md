@@ -2,7 +2,7 @@
 
 > **产品：** SaveAny 万能视频下载器（https://videodown.cozyguidehub.com）  
 > **阶段：** Beta Phase（B1 → B2 并行）  
-> **文档版本：** 2026-06-02（Run #002 — Creem preliminary reply recorded）  
+> **文档版本：** 2026-06-02（Run #003 — §5A verified）  
 > **相关文档：** [monetization-paths.md](./monetization-paths.md) · [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) · [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md) · [mor-outreach-tracker.md](./mor-outreach-tracker.md) · [beta-operations-log.md](./beta-operations-log.md)
 
 **声明：** 本文档为内部调研与申请材料准备，不构成法律、税务或合规意见。文中 **不记录** 任何 API Key、商户号、密钥、个人身份证件或收款码。费率与政策以各平台官网及审核结果为准。

@@ -2,8 +2,8 @@
 
 > **产品：** SaveAny 万能视频下载器（https://videodown.cozyguidehub.com）  
 > **阶段：** Beta Phase（B1 → B2 并行）  
-> **文档版本：** 2026-06-02（Agent Run #002）  
-> **最后更新：** 2026-06-02 — SaveAny MoR Tracking Documentation Agent  
+> **文档版本：** 2026-06-02（Agent Run #003 — verified）  
+> **最后更新：** 2026-06-02 — SaveAny Beta Operations Tracking Agent（Run #003 核对 Run #002 记录完整）  
 > **相关文档：** [mor-application-prep.md](./mor-application-prep.md) · [mor-outreach-message-pack.md](./mor-outreach-message-pack.md) · [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md) · [beta-operations-log.md](./beta-operations-log.md) · [monetization-paths.md](./monetization-paths.md)
 
 **声明：** 本文档为内部运营跟踪，**不记录** API Key、商户号、密钥、个人身份证件或收款码。平台政策以官方回复为准。
@@ -24,7 +24,7 @@
 
 ## 2. 候选平台跟踪表
 
-> **2026-06-02 Run #002：** Creem 已通过 dashboard support chat 发送问询，收到 AI/assistant **初步回复**，状态 **human_review_pending**（`Waiting for a teammate`）。**非正式 Live 通过** — 待 human compliance/support 最终确认。Lemon Squeezy / Paddle 仍为 **ready_to_send**。
+> **2026-06-02 Run #003 核对：** MOR-001 Creem 字段与 Run #002 一致 — **human_review_pending** · 问询已发送（dashboard support chat）· **preliminary_go** · 待 human compliance/support。**非正式 Live 通过。**
 
 | ID | 平台 | 官网 / 后台入口 | 当前状态 | 是否已注册账号 | 是否已发送问询 | 发送日期 | 回复日期 | 回复结论 | 是否接受 video utility / AI summary SaaS | 是否需要公司主体 | 是否支持个人开发者 | 是否支持中国开发者 | 提现方式 | 费率 | Webhook 支持 | 风控关注点 | Go / No-Go / Pending | 下一步动作 | 备注 |
 |----|------|-----------------|----------|----------------|----------------|----------|----------|----------|------------------------------------------|------------------|--------------------|--------------------|----------|------|--------------|------------|----------------------|------------|------|
@@ -63,7 +63,7 @@
 
 | 日期 | 平台 | 联系方式 | 使用模板版本 | 是否发送 | 附带资料 | 对方 ticket id | 对方回复摘要 | 需要补充的信息 | 当前状态 | 操作时间戳 |
 |------|------|----------|--------------|----------|----------|----------------|--------------|----------------|----------|------------|
-| 2026-06-02 | Creem | Creem dashboard support chat / Creemie assistant | mor-outreach-message-pack §3 v2026-06-02 | **是** | 官网链接；合规边界说明 | —（chat 无 ticket id） | 初步符合 SaaS 类别；须明确版权/不绕过/不保证全平台；支持 individual + China merchants；Alipay/UnionPay payout；webhook 支持；**已转人工** Waiting for a teammate | human compliance/support final confirmation；Creem public support settings 配置 support@cozyguidehub.com | **human_review_pending** | 2026-06-02 Agent #002 |
+| 2026-06-02 | Creem | Creem dashboard support chat / Creemie assistant | mor-outreach-message-pack §3 v2026-06-02 | **是** | 官网链接；合规边界说明 | —（chat 无 ticket id） | 初步符合 SaaS 类别；须明确版权/不绕过/不保证全平台；支持 individual + China merchants；Alipay/UnionPay payout；webhook 支持；**已转人工** Waiting for a teammate | human compliance/support final confirmation；Creem public support settings 配置 support@cozyguidehub.com | **human_review_pending** | 2026-06-02 Agent #002；#003 verified |
 | 2026-06-02 | Lemon Squeezy | LS seller support（To confirm 具体入口） | mor-outreach-message-pack §4 v2026-06-02 | **否** | 官网链接 | — | — | — | **ready_to_send** | 2026-06-02 Agent #001 |
 | 2026-06-02 | Paddle | Paddle vendor support（To confirm 具体入口） | mor-outreach-message-pack §5 v2026-06-02 | **否** | 官网链接 | — | — | — | **ready_to_send** | 2026-06-02 Agent #001 |
 | — | Dodo Payments | To confirm | mor-application-prep §5 | 否 | — | — | — | — | Pending | — |

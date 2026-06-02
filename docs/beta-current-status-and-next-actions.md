@@ -2,8 +2,8 @@
 
 > **产品：** SaveAny 万能视频下载器  
 > **线上：** https://videodown.cozyguidehub.com  
-> **文档版本：** 2026-06-02（Agent Run #002）  
-> **最后 Agent 同步：** 2026-06-02 — Creem preliminary_go, human_review_pending · LS/Paddle ready_to_send  
+> **文档版本：** 2026-06-02（Agent Run #003 — verified）  
+> **最后 Agent 同步：** 2026-06-02 — Run #003 核对：Creem preliminary_go, human_review_pending · LS/Paddle ready_to_send  
 > **相关文档：** [paid-beta-test-plan.md](./paid-beta-test-plan.md) · [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) · [mor-application-prep.md](./mor-application-prep.md) · [beta-feedback-log.md](./beta-feedback-log.md)
 
 ---
@@ -111,6 +111,7 @@ MoR（Creem）
 
 | Commit | 说明 |
 |--------|------|
+| `52b2a68` | docs: Creem preliminary MoR response（Run #002） |
 | `7980b5c` | Account/Pricing Beta 收款与 MAN 订单文案 |
 | `10eff50` | P0：i18n 邮箱 `@` 转义；修复 /pricing 与 /account 空白页 |
 | `ba455ad` | admin_adjust_vip.py 手动 VIP 调整 CLI |
