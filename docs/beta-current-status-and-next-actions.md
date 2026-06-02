@@ -2,7 +2,8 @@
 
 > **产品：** SaveAny 万能视频下载器  
 > **线上：** https://videodown.cozyguidehub.com  
-> **文档版本：** 2026-05-31  
+> **文档版本：** 2026-06-02（Agent Run #002）  
+> **最后 Agent 同步：** 2026-06-02 — Creem preliminary_go, human_review_pending · LS/Paddle ready_to_send  
 > **相关文档：** [paid-beta-test-plan.md](./paid-beta-test-plan.md) · [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) · [mor-application-prep.md](./mor-application-prep.md) · [beta-feedback-log.md](./beta-feedback-log.md)
 
 ---
@@ -39,7 +40,7 @@
 | 限制 | 影响 |
 |------|------|
 | **Stripe Live 未打通** | 站内「购买」按钮走 Test Mode，不能描述为正式自动收款 |
-| **MoR 未接入** | 无国际信用卡自动订阅 / 一次性 Live 扣款 |
+| **MoR 未接入** | 无国际信用卡 Live 扣款；Creem **preliminary_go / human_review_pending** — **非正式 Live 批准** |
 | **ASR 关闭** | 无字幕视频须上传 SRT/VTT 才能 AI 总结 |
 | **人工收款无法规模化** | 依赖管理员核对付款 + SSH 开通；适合 5–20 人 Beta |
 | **平台解析受原平台限制** | 登录 / cookies、地区、清晰度上限等因平台而异 |
@@ -51,8 +52,9 @@
 
 | 优先级 | 工作项 | 状态 |
 |--------|--------|------|
-| P0 | 继续回收 **付费 Beta** 反馈（不等待单一渠道） | 进行中 |
-| P0 | **MoR 调研与材料准备** | 见 [mor-application-prep.md](./mor-application-prep.md) |
+| P0 | **MoR 调研 — Creem 人工审核待回复** | preliminary_go；human_review_pending；**不接 webhook / Live** |
+| P0 | **MoR 备选 — Lemon Squeezy / Paddle** | **ready_to_send**；Creem No-Go 或 Pending 过久时再发 |
+| P0 | **付费 Beta 扩展（10–20 人）** | 槽位已建；邀请话术见 paid-beta-test-plan §4；**待人工私聊** |
 | P0 | **i18n `@` 规范检查**（vue-i18n 邮箱转义） | 2026-05-31 巡检通过 |
 | P0 | **Beta 收款文案巡检**（Pricing / Account / Payment） | 2026-05-31 巡检通过 |
 | — | **不做** Desktop 客户端 | 范围外 |
@@ -65,35 +67,41 @@
 
 | 指标 | 观察方式 | 当前 |
 |------|----------|------|
-| 有多少人 **愿意付费** | 邀请话术回复、咨询邮件 | 待积累 |
-| 是否有人 **实际支付**（人工通道） | MAN 订单 + 收款记录 | 待积累 |
+| 有多少人 **愿意付费** | 邀请话术回复、咨询邮件 | **0 / 目标 10–20**（2026-06-02 批次启动，待联系） |
+| 是否有人 **实际支付**（人工通道） | MAN 订单 + 收款记录 | **0** — Pending |
 | **人工开通** 流程是否顺畅 | 开通耗时、用户是否收到权益 | 工具已就绪，待样本 |
 | 用户是否理解 **Test Mode vs 人工收款** | 反馈、误付投诉 | 文案已加强，待观察 |
-| 用户最看重 **下载 / 高清 / 批量 / AI 总结** 哪一项 | Beta 反馈表 | 待积累 |
+| 用户最看重 **下载 / 高清 / 批量 / AI 总结** 哪一项 | Beta 反馈表 | To confirm |
+| MoR 平台回复 | mor-outreach-tracker §4 | **Creem 初步回复已收** — human_review_pending；LS/Paddle ready_to_send |
 
-记录模板见 [paid-beta-test-plan.md](./paid-beta-test-plan.md)、[beta-feedback-log.md](./beta-feedback-log.md)。
+记录模板见 [paid-beta-test-plan.md](./paid-beta-test-plan.md)、[paid-beta-feedback-tracker.md](./paid-beta-feedback-tracker.md)、[beta-feedback-log.md](./beta-feedback-log.md)、[beta-operations-log.md](./beta-operations-log.md)。
 
 ---
 
 ## 6. 下一步推荐（决策树）
 
 ```
+MoR（Creem）
+├── human_review_pending（preliminary_go）
+│   ├── 人工确认 Go → KYC / Live Mode / payout 设置（仍不写 webhook 直至 Live approval）
+│   ├── 要求改合规文案 → 先改网站再提交 Live review
+│   └── No-Go → 发送 Lemon Squeezy / Paddle 问询
 付费意愿反馈
 ├── 1–3 人愿意付费且流程顺畅
-│   └── 扩大到 5–10 人受控 Beta；并行 MoR 问询
+│   └── 维持 10–20 人受控 Beta
 ├── 用户不理解支付 / 误以为 Test Mode 已扣款
-│   └── 继续优化 Pricing / Account / Payment 文案（本轮已巡检）
-├── MoR 平台明确 Go
-│   └── 设计 Webhook 自动开通；**仍保留** 人工兜底
+│   └── 继续优化 Pricing / Account / Payment 文案
 └── 长期无人愿意付费
     └── 回到需求验证（功能优先级、定价、目标用户）
 ```
 
 | 场景 | 推荐动作 |
 |------|----------|
-| 有 1–3 笔真实人工付费 | 扩大到 5–10 人；更新 [beta-feedback-log.md](./beta-feedback-log.md) |
+| Creem human_review_pending | **1.** 等 Creem 人工回复 **2.** 若 Go → KYC / Live Mode / payout **3.** 若要求改文案 → 先改网站 **4.** 若 No-Go → 发 LS/Paddle **5.** **不接 webhook 直至 Live approval 明确** |
+| Lemon Squeezy / Paddle | **ready_to_send** — Creem No-Go 或 Pending 过久时人工发送 message pack §4/§5 |
+| 有 1–3 笔真实人工付费 | 维持 10–20 人 cohort；更新 [paid-beta-feedback-tracker.md](./paid-beta-feedback-tracker.md) |
 | 用户混淆 Test / Live | 强化页面说明；客服统一话术（support@cozyguidehub.com） |
-| Creem / Lemon Squeezy 回复积极 | 进入 sandbox；**暂不写生产 Webhook** 直至书面 Go |
+| Creem / Lemon Squeezy 回复积极 | Creem 已 preliminary_go；**暂不写生产 Webhook** 直至 **Live approval 明确** |
 | MoR 全部 No-Go | 评估国内个体户 + 支付宝/微信（中长期）；短期维持人工收款 |
 | 解析 / AI 失败率高 | 优化失败任务指引；平台兼容性回归（见 [platform-compatibility-samples.md](./platform-compatibility-samples.md)） |
 
@@ -112,7 +120,7 @@
 ## 8. 明确不在本轮范围
 
 - Stripe Live 接入  
-- MoR 生产代码与 Webhook  
+- MoR 生产代码与 Webhook（**含 Creem webhook — Live approval 前不接**）  
 - ASR 启用  
 - Desktop 项目  
 - Admin Web / 公网 Admin API  

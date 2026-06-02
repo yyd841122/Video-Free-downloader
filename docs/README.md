@@ -23,6 +23,7 @@
 | **MoR 平台问询与审核跟踪** | [mor-outreach-tracker.md](./mor-outreach-tracker.md) |
 | **MoR 问询邮件包（可复制发送）** | [mor-outreach-message-pack.md](./mor-outreach-message-pack.md) |
 | **付费 Beta 反馈与开通跟踪** | [paid-beta-feedback-tracker.md](./paid-beta-feedback-tracker.md) |
+| **Beta 运营操作日志** | [beta-operations-log.md](./beta-operations-log.md) |
 | AI 总结 MVP 验收与边界 | [ai-summary-mvp-validation.md](./ai-summary-mvp-validation.md) |
 | AI 总结测试样本记录 | [ai-summary-test-samples.md](./ai-summary-test-samples.md) |
 | 产品与会员需求背景 | [需求分析.md](./需求分析.md) |
@@ -49,6 +50,7 @@
 | [mor-outreach-tracker.md](./mor-outreach-tracker.md) | **MoR 问询执行跟踪**：平台审核状态、发送记录、Go/No-Go 决策 |
 | [mor-outreach-message-pack.md](./mor-outreach-message-pack.md) | **MoR 问询邮件包**：Creem / Lemon Squeezy / Paddle 可复制英文模板 |
 | [paid-beta-feedback-tracker.md](./paid-beta-feedback-tracker.md) | **付费 Beta 执行跟踪**：用户响应、开通记录、使用反馈、每周复盘 |
+| [beta-operations-log.md](./beta-operations-log.md) | **Beta 运营操作日志**：Agent 运行记录、待人工触发项、时间戳 |
 
 ### 英文 / 历史（参考用）
 

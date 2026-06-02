@@ -2,8 +2,8 @@
 
 > **产品：** SaveAny 万能视频下载器（https://videodown.cozyguidehub.com）  
 > **阶段：** Beta Phase（B1 → B2 并行）  
-> **文档版本：** 2026-05-31  
-> **相关文档：** [monetization-paths.md](./monetization-paths.md) · [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) · [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md)
+> **文档版本：** 2026-06-02（Run #002 — Creem preliminary reply recorded）  
+> **相关文档：** [monetization-paths.md](./monetization-paths.md) · [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) · [beta-current-status-and-next-actions.md](./beta-current-status-and-next-actions.md) · [mor-outreach-tracker.md](./mor-outreach-tracker.md) · [beta-operations-log.md](./beta-operations-log.md)
 
 **声明：** 本文档为内部调研与申请材料准备，不构成法律、税务或合规意见。文中 **不记录** 任何 API Key、商户号、密钥、个人身份证件或收款码。费率与政策以各平台官网及审核结果为准。
 
@@ -16,6 +16,8 @@
 | Stripe Live | **未打通** — 站内 Stripe 仅为 Test Mode 技术验证 |
 | 当前真实收款 | **人工收款**（微信 / 支付宝 / PayPal 线下）+ 管理员 SSH 执行 `admin_grant_vip.py` → 生成 **MAN** 人工订单 |
 | MoR 自动收款 | **中期候选路径**，尚未接入任何 Live 支付 |
+| Creem 问询 | **已发送**（dashboard support chat）；收到 **初步** AI/assistant 回复 — **human_review_pending** |
+| Creem Live 批准 | **否** — 非正式通过；待 human compliance/support 最终确认 |
 | 本文用途 | 调研对比、申请材料准备、平台问询 — **不写 MoR 集成代码** |
 
 **原则：** 在平台审核明确接受业务类型、提现路径可行、Webhook 可自动开通会员之前，**不接入任何 Live 支付**，保留人工收款作为 Beta 兜底。
@@ -28,7 +30,7 @@
 
 | 平台 | 是否 MoR | 适合 SaaS / 数字产品 | 可能是否接受中国开发者 | 是否适合视频下载 + AI 总结工具 | 审核风险 | Webhook 集成成本 | 提现/结算不确定点 | 下一步动作 |
 |------|----------|----------------------|------------------------|-------------------------------|----------|------------------|-------------------|------------|
-| **Creem** | 是（宣称 MoR，需官网确认） | ⭐⭐⭐⭐ SaaS / AI 工具 | 相对友好（华人社区讨论较多；**需注册后确认**） | 中等 — 需强调用户版权责任、个人学习备份 | 中 — 下载类工具可能被追问用途 | 低–中 — REST + Webhook，与现有订单模型可映射 | 大陆个人无海外公司时的提现、外汇、税务；**需官方确认支持国家** | **优先**：注册 sandbox，发问询邮件（见 §5） |
+| **Creem** | 是（MoR） | ⭐⭐⭐⭐ SaaS / AI 工具 | **初步确认支持** China-based individual merchants | 初步符合 — 须强调版权/不绕过/不保证全平台 | 中 — 下载类须合规表述一致 | 低–中 — webhook 初步确认（checkout.completed, payment.succeeded） | 个人 Alipay/UnionPay（单笔 50,000 CNY 上限）；local bank 仅企业；KYC 与 payout 须同一人 | **等待人工最终确认** → KYC / Live Mode review |
 | **Lemon Squeezy** | 是 | ⭐⭐⭐⭐ 数字产品 / SaaS / 订阅 | 中等 — KYC 必需；部分地区受限，**需官方确认** | 中等 — 类似 Paddle，需合规表述包 | 中 — 对 indie 相对友好但仍可能审查产品类型 | 低–中 — 文档完善，Webhook 事件丰富 | PayPal / 银行到账路径；中国开发者主体要求 **需确认** | **并行优先**：填申请表 + 发问询邮件 |
 | **Paddle** | 是（经典 SaaS MoR） | ⭐⭐⭐⭐⭐ | 中等 — 需 KYC；**需官方确认** 大陆个人/个体是否可入驻 | 中–高 — 软件/SaaS 成熟，下载器类可能需补充 FAQ | 中高 — 审核较严但路径清晰 | 中 — Checkout + Webhook，文档成熟 | 分成比例、提现周期、税务代扣范围 **需签约前确认** | 同步准备资料；若 Creem / LS 不顺则推进 |
 | **Dodo Payments** | 宣称 MoR | ⭐⭐⭐ 新兴平台 | 待核实 — **需注册后确认** | 待核实 — 视频/下载类是否允许 **需官方确认** | 中–高（新平台，案例少） | 低–中 | 稳定性、争议处理、提现路径均待观察 | P2：观察其他开发者案例后再试 |
@@ -101,11 +103,45 @@ Questions:
 We are currently in Beta with manual payment fallback and Stripe Test Mode for technical validation only — no live in-app charges yet.
 
 Thank you,
-[Your name]
+SaveAny Operations Team
 SaveAny / support@cozyguidehub.com
 ```
 
 **使用说明：** 将 `[Platform]` 替换为 Creem、Lemon Squeezy、Paddle 等；勿在邮件中附带密钥、身份证件或收款码。
+
+---
+
+## 5A. Creem 初步回复摘要（2026-06-02）
+
+> **This is a preliminary support/assistant response, not final live approval.**
+
+| 项 | 内容 |
+|----|------|
+| 发送方式 | Creem dashboard support chat / Creemie assistant |
+| Chat 状态 | Waiting for a teammate（已转人工） |
+| 产品类别 | SaveAny **初步符合** Creem 可接受 SaaS 类别 |
+| 下载类合规要求 | 不支持/鼓励版权侵权；用户须拥有内容访问/下载/使用权；不承诺绕过平台限制；不保证所有平台或视频支持 |
+| Support email | 须使用自有品牌域名可达邮箱：**support@cozyguidehub.com**；**不允许** Gmail 等免费邮箱作为公开 support email |
+| 开发者主体 | 支持 **individual developers**；支持 **China-based merchants** |
+| 个人提现 | 中国大陆个人可通过 **Alipay** 或 **UnionPay**；Alipay 单笔 payout 上限 **50,000 CNY** |
+| 企业提现 | **Local bank transfer** 仅限注册企业 |
+| KYC | KYC 本人与 payout account **必须为同一人**；名字建议英文/拉丁字符（如 Creem 示例格式 **Yingdong You**） |
+| 费率 | 标准 **3.9% + $0.40** |
+| 最低提现 | **$50 USD** |
+| 提现周期 | 每月 **1 日** 和 **15 日** |
+| Webhook | 支持 **checkout.completed**、**payment.succeeded**（**Live approval 前不接代码**） |
+| 审核时效 | 通常 **24–48 小时**，峰值可能 **72 小时** |
+| 上线要求 | 产品须 **live and accessible**；Pricing / Privacy / Terms / Refund 须公开可访问 |
+| 当前结论 | **preliminary_go** — 仍待 **human compliance/support final confirmation** |
+
+### Creem 下一步清单
+
+- [ ] 等待人工团队确认 SaveAny 是否可进入 **Live Mode review**
+- [ ] 确认 **support@cozyguidehub.com** 已在 Creem **public support settings** 中配置
+- [ ] 准备 KYC：个人身份；英文名格式参考 **Yingdong You**（英文/拉丁字符）
+- [ ] 确认 **Alipay / UnionPay** payout 账号与 KYC 本人一致
+- [ ] **Live approval 之前不写 webhook 代码**
+- [ ] 若人工团队要求调整合规文案，先改网站 Terms / FAQ / 产品描述后再提交 Live review
 
 ---
 
@@ -135,11 +171,13 @@ SaveAny / support@cozyguidehub.com
 
 | 顺序 | 动作 | 说明 |
 |------|------|------|
-| 1 | 向 **Creem**、**Lemon Squeezy** 发送 §5 问询邮件或提交 pre-sales 表单 | 优先确认业务类型与主体要求 |
-| 2 | 同步准备 **Paddle** 申请资料 | Creem / LS 若不顺则切换 |
-| 3 | **保留人工收款** + `admin_grant_vip.py` 作为 Beta 兜底 | 见 [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) |
-| 4 | **不立即写 MoR 集成代码** | 避免审核未过时的无效开发 |
-| 5 | 平台 Go 决策后，再设计 Webhook → 订单表 → VIP 发放 | 复用现有 Stripe Test Mode 验收过的订单与会员模型 |
+| 1 | **等待 Creem 人工 compliance/support 回复** | human_review_pending；见 §5A |
+| 2 | 若 Creem **Go** | 完成 KYC / Live Mode review / payout 设置；**仍不写 webhook 直至 Live approval 明确** |
+| 3 | 若 Creem 要求改合规文案 | 先改网站文案再提交 Live review |
+| 4 | 若 Creem **No-Go** 或 Pending 过久 | 发送 [mor-outreach-message-pack.md](./mor-outreach-message-pack.md) §4 Lemon Squeezy、§5 Paddle |
+| 5 | **保留人工收款** + `admin_grant_vip.py` 作为 Beta 兜底 | 见 [manual-payment-vip-grant-sop.md](./manual-payment-vip-grant-sop.md) |
+| 6 | **不立即写 MoR 集成代码** | 避免审核未过时的无效开发 |
+| 7 | 平台 **Live approval** 后，再设计 Webhook → 订单表 → VIP 发放 | 复用现有 Stripe Test Mode 验收过的订单与会员模型 |
 
 **技术备忘（本轮不做）：** 订单表未来可增加 `payment_provider` 字段；Webhook 幂等与对账流程参考 [stripe-test-mode-validation-report.md](./stripe-test-mode-validation-report.md)。
 
