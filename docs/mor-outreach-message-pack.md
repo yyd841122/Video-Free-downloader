@@ -1,7 +1,7 @@
 # SaveAny MoR 问询邮件包（可直接复制发送）
 
 > **产品：** SaveAny 万能视频下载器  
-> **文档版本：** 2026-05-31  
+> **文档版本：** 2026-06-02（操作人署名已填，待人工发送）  
 > **相关文档：** [mor-application-prep.md](./mor-application-prep.md) · [mor-outreach-tracker.md](./mor-outreach-tracker.md)
 
 ---
@@ -11,13 +11,13 @@
 | 项 | 说明 |
 |----|------|
 | 用途 | 提交给 MoR 平台 **客服、销售或审核团队** 的 pre-sales / compliance 问询 |
-| 发送前 | 请自行补充 **[Your name]**、联系方式、账号信息（如已注册） |
+| 发送前 | 署名已填 **SaveAny Operations Team**；发送前请确认账号信息（如已注册） |
 | 不包含 | API Key、商户密钥、身份证、银行账号、税务编号、个人收款码 |
 | 性质 | **仅用于问询**，不代表正式申请已通过或已签约 |
 | 发送后 | 在 [mor-outreach-tracker.md](./mor-outreach-tracker.md) 回填记录（见 §7） |
 | 代码 | 当前 **不接** MoR Webhook、Stripe Live 或任何 Live 支付集成 |
 
-**模板版本 ID：** `mor-outreach-message-pack` v2026-05-31
+**模板版本 ID：** `mor-outreach-message-pack` v2026-06-02
 
 ---
 
@@ -67,7 +67,7 @@ Questions
 7. What is a typical review timeline?
 
 Thank you,
-[Your name]
+SaveAny Operations Team
 SaveAny — support@cozyguidehub.com
 ```
 
@@ -103,7 +103,7 @@ Could you confirm:
 5) Docs needed for review and expected timeline?
 
 Thanks,
-[Your name]
+SaveAny Operations Team
 support@cozyguidehub.com
 ```
 
@@ -152,7 +152,7 @@ Please advise:
 6. Any product-specific restrictions for video or AI tools
 
 Thank you,
-[Your name]
+SaveAny Operations Team
 SaveAny
 support@cozyguidehub.com
 ```
@@ -204,7 +204,7 @@ We respectfully request confirmation on:
 Thank you for your guidance.
 
 Sincerely,
-[Your name]
+SaveAny Operations Team
 SaveAny
 support@cozyguidehub.com
 ```
@@ -222,7 +222,7 @@ support@cozyguidehub.com
 | 表述边界 | **避免**「任意视频下载」「破解」「绕过会员」等表述；使用「用户有权访问的内容」「个人学习备份」 |
 | ASR | 明确说明 **未开放**，避免审核误解 |
 | 付款现状 | 可说明 Beta 人工收款 + 站内 Test Mode 非正式扣款，**不要** 声称已接入 Live MoR |
-| 复制发送 | 替换 `[Your name]`；Creem / LS 表单若无 Subject 字段，将 Subject 内容并入正文首行 |
+| 复制发送 | 署名已填 **SaveAny Operations Team**；Creem / LS 表单若无 Subject 字段，将 Subject 内容并入正文首行 |
 
 ---
 
